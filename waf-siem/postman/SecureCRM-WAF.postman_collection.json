@@ -1,0 +1,115 @@
+{
+  "info": {
+    "name": "Secure CRM — WAF + SIEM (Proyecto Final)",
+    "description": "Peticiones a traves del WAF (localhost:8080). Carpeta 0: verificacion. Carpeta 1: trafico legitimo (el login guarda el token automaticamente). Carpeta 2: ataques — cada peticion tiene un slot donde pegas el PoC que ya documentaste en el Proyecto DAST. Usa el environment 'SecureCRM-WAF'.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Verificacion",
+      "item": [
+        {
+          "name": "Health a traves del WAF (debe dar 200)",
+          "request": { "method": "GET", "url": "{{base_url}}/api/health" }
+        },
+        {
+          "name": "Health directo a la app (saltando el WAF)",
+          "request": { "method": "GET", "url": "{{base_url_directo}}/api/health" },
+          "event": [
+            { "listen": "test", "script": { "exec": [
+              "// Si esto responde 200, la app sigue expuesta en su puerto original:",
+              "// el Red Team puede ir directo sin pasar por el WAF. Es un HALLAZGO.",
+              "// Se cierra con la opcion B del README (app como servicio de Docker)."
+            ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Trafico legitimo",
+      "item": [
+        {
+          "name": "Login (guarda el token)",
+          "event": [
+            { "listen": "test", "script": { "exec": [
+              "pm.test('login 200', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "if (j.token) { pm.environment.set('token', j.token); console.log('token guardado'); }",
+              "if (j.user) { console.log('rol:', j.user.role, '| usuario:', j.user.username); }"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": "{{base_url}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"jperez\",\n  \"password\": \"Password1\"\n}" }
+          }
+        },
+        {
+          "name": "Listar tickets (usa el token)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": "{{base_url}}/api/tickets"
+          }
+        },
+        {
+          "name": "Buscar tickets (termino normal)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": {
+              "raw": "{{base_url}}/api/tickets?q=soporte",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "tickets" ],
+              "query": [ { "key": "q", "value": "soporte" } ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Ataques (pega tu PoC del lab DAST)",
+      "description": "El WAF esta en DetectionOnly: estas peticiones NO se bloquean, solo se registran. Reemplaza el valor {{poc_...}} por el PoC que documentaste en el Proyecto DAST. Despues de enviarlas, revisa el SIEM.",
+      "item": [
+        {
+          "name": "SQLi en el login",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": "{{base_url}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{poc_sqli_login}}\",\n  \"password\": \"x\"\n}" }
+          }
+        },
+        {
+          "name": "SQLi / XSS en la busqueda de tickets",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": {
+              "raw": "{{base_url}}/api/tickets?q={{poc_busqueda}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "tickets" ],
+              "query": [ { "key": "q", "value": "{{poc_busqueda}}" } ]
+            }
+          }
+        },
+        {
+          "name": "Metodo no permitido (DELETE) — prueba del modo On",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": "{{base_url}}/api/tickets/1"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [
+              "// En DetectionOnly: pasa. En modo On: el WAF responde 403 (regla 911100),",
+              "// porque DELETE no esta en ALLOWED_METHODS. Asi se ve el falso positivo",
+              "// de metodos en el Hito 3."
+            ] } }
+          ]
+        }
+      ]
+    }
+  ]
+}

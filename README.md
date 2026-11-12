@@ -2,11 +2,31 @@
   <img src="docs/brand/uvg-ink.png" alt="Universidad del Valle de Guatemala" height="48" />
 </p>
 
-# Secure CRM — Laboratorio OWASP (DAST)
+# Secure CRM — Proyecto Final Integrador (SSLC)
 
-CRM de tickets **intencionalmente vulnerable** para el curso **Desarrollo de Software
+CRM de tickets **intencionalmente vulnerable** para el curso **CC3077 - Desarrollo de Software
 Seguro** de la **Universidad del Valle de Guatemala**. Cada hallazgo se mapea al
 **OWASP Top 10:2025** y al **CWE Top 25:2025**, y se estima su riesgo con **CVSS v3.1**.
+
+## Integrantes y Roles del Equipo
+
+| Nombre | Usuario GitHub | Rol |
+|--------|----------------|-----|
+| **Fabiola Contreras** | [@Fabiola-cc](https://github.com/Fabiola-cc) | Equipo rojo (Red Team) |
+| **María José Villafuerte** | [@Maria-Villafuerte](https://github.com/Maria-Villafuerte) | Equipo rojo (Red Team) |
+| **Andree Toledo** | [@andreetoledo](https://github.com/andreetoledo) | Equipo azul (Blue Team) |
+| **Sofía Velásquez** | [@Sofiamishel2003](https://github.com/Sofiamishel2003) | Equipo azul (Blue Team) |
+
+## Entregables del Proyecto Final
+
+| Hito / Recurso | Ruta en el repositorio | Descripción |
+|---|---|---|
+| **H0 · Entorno WAF + SIEM** | [`waf-siem/`](waf-siem/README.md) | ModSecurity + OWASP CRS (`:8080`), Elasticsearch (`:9200`), Kibana (`:5601`), Filebeat y colección Postman |
+| **H1 · Diseño seguro** | [`docs/hito-1/README.md`](docs/hito-1/README.md) | DFD con límites de confianza, STRIDE, PASTA (etapas 1–5), superficie de ataque, requisitos y casos de abuso |
+| **H2 · Pipeline y ataque** | [`.github/workflows/devsecops.yml`](.github/workflows/devsecops.yml) y [`docs/hito-2/README.md`](docs/hito-2/README.md) | Pipeline DevSecOps (SAST Semgrep, SCA pnpm audit, SBOM Syft CycloneDX, DAST ZAP baseline) y PoC del Red Team |
+| **H3 · Detección y respuesta** | [`docs/hito-3/README.md`](docs/hito-3/README.md) y `waf-siem/kibana-export.ndjson` | Reglas de detección en Kibana (`DET-*`), Dashboard Blue Team, WAF en modo `On` y exclusiones justificadas |
+| **H4 · Remediación con IA** | [`docs/hito-4/README.md`](docs/hito-4/README.md) | Correcciones en código asistidas por IA, auditoría SAST/manual, pruebas de regresión y re-prueba |
+| **Informe Final** | [`docs/plantilla-informe.md`](docs/plantilla-informe.md) | Matriz de trazabilidad completa, línea de tiempo, exclusiones, riesgo residual (PASTA 7) y lecciones |
 
 > **Este proyecto contiene fallos de seguridad a propósito.** Úsalo **solo** en tu
 > entorno local o de staging autorizado. **Nunca** lo despliegues en producción ni
