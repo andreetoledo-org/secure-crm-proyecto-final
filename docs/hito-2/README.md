@@ -45,6 +45,20 @@ El pipeline se ejecuta automáticamente en cada `push`, `pull_request` y `workfl
 > - Las imágenes `03-poc-sqli.png`, `04-poc-xss.png` y `05-poc-idor.png` corresponden a la **repetición en Postman** (no a Burp); `02-postman-poc-variables.png` muestra las variables del environment y `06-calculadora-cvss.png`, el cálculo del CVSS.
 > - Anoten la **fecha y hora exacta** de cada envío en la tabla **Registro de ataques** al final de este documento para que el **Equipo Azul** filtre esa misma ventana de tiempo en Kibana (Hito 3).
 
+**Evidencia de contexto (entorno y herramientas):**
+
+- Bypass del WAF: la API responde directo en `:4000` sin pasar por el WAF (CA-05 / V-10).
+
+  ![Bypass del WAF — GET http://localhost:4000/api/health responde 200](../assets/img/red/bypass-4000.png)
+
+- Variables del environment `SecureCRM-WAF` en Postman (tokens y payloads de las PoC):
+
+  ![Postman — variables del environment SecureCRM-WAF](../assets/img/red/02-postman-poc-variables.png)
+
+- Cálculo del CVSS v3.1 en la calculadora oficial:
+
+  ![Calculadora CVSS v3.1](../assets/img/red/06-calculadora-cvss.png)
+
 - **Reporte de ZAP (sesión del Equipo Rojo por `:8080`):** [`reporte-zap-redteam.html`](reporte-zap-redteam.html) — generado el **2026-11-12 a las 11:30:00** con **ZAP 2.17.0**, sitio escaneado `http://localhost:8080`. Resumen: **0 Alto · 1 Medio · 4 Bajo · 3 Informativo** (8 alertas).
   - **Medio:** `Inyección SQL` en `POST /api/auth/login` (respalda PoC-01); `CSP: Failure to Define Directive with No Fallback`.
   - **Bajo:** `Cookie sin flag HttpOnly`, `Cookie sin atributo SameSite`, `El servidor divulga información (X-Powered-By)`, `Falta encabezado X-Content-Type-Options`.
@@ -66,8 +80,12 @@ El pipeline se ejecuta automáticamente en cada `push`, `pull_request` y `workfl
 - **Dónde vive:** `POST http://localhost:8080/api/auth/login`. Causa raíz verificada en [`apps/api/src/auth.ts:30`](../../apps/api/src/auth.ts#L30) — la consulta se construye por concatenación de strings (`SELECT * FROM users WHERE username = '${username}' AND password_hash = '${hashed}'`).
 - **Herramienta:** OWASP ZAP (descubrimiento) + Burp Suite Repeater (explotación manual) + Postman (repetición para el SIEM).
 - **Alerta de ZAP / Evidencia de descubrimiento:** ZAP (2026-11-12) levantó la alerta **`Inyección SQL` (riesgo Medio)** sobre `POST http://localhost:8080/api/auth/login` — ver `reporte-zap-redteam.html`.
-- **Captura de Burp Repeater (petición y respuesta):** `../assets/img/red/burp-poc-01.png`
-- **Captura de repetición en Postman:** `../assets/img/red/03-poc-sqli.png`
+- **Captura de Burp Repeater (petición y respuesta):**
+
+  ![PoC-01 · SQLi en el login — Burp Repeater](../assets/img/red/burp-poc-01.png)
+- **Captura de repetición en Postman:**
+
+  ![PoC-01 · SQLi en el login — Postman](../assets/img/red/03-poc-sqli.png)
 - **Petición reproducida (Burp Repeater y Postman):**
   ```http
   POST /api/auth/login HTTP/1.1
@@ -103,8 +121,12 @@ El pipeline se ejecuta automáticamente en cada `push`, `pull_request` y `workfl
 - **Dónde vive:** `GET http://localhost:8080/api/tickets?q=<payload>`, reflejado en la vista `http://localhost:3000/tickets`.
 - **Herramienta:** OWASP ZAP (descubrimiento) + Burp Suite Repeater + Postman.
 - **Alerta de ZAP / Evidencia de descubrimiento:** ZAP (2026-11-12) no generó una alerta propia de XSS reflejado, pero sí marcó **`CSP: Failure to Define Directive with No Fallback` (riesgo Medio)** — la ausencia de `Content-Security-Policy` es lo que permite que el script reflejado se ejecute. El XSS reflejado se confirma manualmente con Burp (`burp-poc-02.png`).
-- **Captura de Burp Repeater (petición y respuesta):** `../assets/img/red/burp-poc-02.png`
-- **Captura de repetición en Postman:** `../assets/img/red/04-poc-xss.png`
+- **Captura de Burp Repeater (petición y respuesta):**
+
+  ![PoC-02 · XSS reflejado en la búsqueda — Burp Repeater](../assets/img/red/burp-poc-02.png)
+- **Captura de repetición en Postman:**
+
+  ![PoC-02 · XSS reflejado en la búsqueda — Postman](../assets/img/red/04-poc-xss.png)
 - **Petición reproducida (Burp Repeater y Postman):**
   ```http
   GET /api/tickets?q=<script>alert(1)</script> HTTP/1.1
@@ -134,8 +156,12 @@ El pipeline se ejecuta automáticamente en cada `push`, `pull_request` y `workfl
 - **Dónde vive:** `GET http://localhost:8080/api/tickets/:id` ([`tickets.ts:51`](../../apps/api/src/routes/tickets.ts#L51)) y `DELETE http://localhost:8080/api/tickets/:id` ([`tickets.ts:109`](../../apps/api/src/routes/tickets.ts#L109)). Ambas rutas solo pasan por `authenticate` ([`tickets.ts:6`](../../apps/api/src/routes/tickets.ts#L6)); **no existe ningún `requireRole` ni verificación de propiedad** en el backend. La falla es de la aplicación: aunque el WAF bloquee `DELETE` por método (regla `911100`), eso no corrige la ausencia de control de acceso.
 - **Herramienta:** Burp Suite Repeater (autorización cruzada) + Postman.
 - **Alerta de ZAP / Evidencia de descubrimiento:** ZAP baseline **no detecta IDOR ni fallas de control de acceso** (requieren conocer la lógica de autorización y comparar entre roles), por eso no aparece en el reporte. Se descubre y confirma manualmente con Burp usando un token de `viewer` (`burp-poc-03.png`).
-- **Captura de Burp Repeater (petición y respuesta):** `../assets/img/red/burp-poc-03.png`
-- **Captura de repetición en Postman:** `../assets/img/red/05-poc-idor.png`
+- **Captura de Burp Repeater (petición y respuesta):**
+
+  ![PoC-03 · IDOR y DELETE con token viewer — Burp Repeater](../assets/img/red/burp-poc-03.png)
+- **Captura de repetición en Postman:**
+
+  ![PoC-03 · IDOR y DELETE con token viewer — Postman](../assets/img/red/05-poc-idor.png)
 - **Petición reproducida (con un token de `viewer`):**
   ```http
   GET /api/tickets/1 HTTP/1.1
@@ -172,7 +198,9 @@ El pipeline se ejecuta automáticamente en cada `push`, `pull_request` y `workfl
 - **Dónde vive:** `GET http://localhost:8080/api/users`. El middleware usa `jwt.decode()` en vez de `jwt.verify()` ([`middleware/auth.ts:21`](../../apps/api/src/middleware/auth.ts#L21)) y lee **`payload.sub`** ([`:26`](../../apps/api/src/middleware/auth.ts#L26)). El token legítimo también se emite con `{ sub, username, role }` ([`auth.ts:45`](../../apps/api/src/auth.ts#L45)).
 - **Herramienta:** Burp Suite Repeater + Postman.
 - **Nota de honestidad sobre el alcance:** `GET /api/users` **no comprueba el rol** del solicitante ([`users.ts:13`](../../apps/api/src/routes/users.ts#L13)): cualquier token aceptado —incluso uno de `viewer` sin modificar— lista los usuarios y sus hashes. Por eso este PoC demuestra con rigor la **aceptación de un token con firma inválida (CWE-347)**, no una escalada por RBAC roto (no hay RBAC que romper en esta ruta). Cambiar `"role":"admin"` sí importa en rutas que *sí* leen el rol (p. ej. las que solo deberían permitir a `admin`); aquí se incluye para mostrar que el payload forjado se acepta tal cual.
-- **Captura de Burp Repeater (petición y respuesta):** `../assets/img/red/burp-poc-04.png`
+- **Captura de Burp Repeater (petición y respuesta):**
+
+  ![PoC-04 · JWT con firma inválida — Burp Repeater](../assets/img/red/burp-poc-04.png)
 - **Petición reproducida.** A partir de un token de `viewer`, se reemplaza el payload por `{"sub":1,"username":"admin","role":"admin"}` en Base64URL y se deja la firma inválida:
   ```http
   GET /api/users HTTP/1.1
