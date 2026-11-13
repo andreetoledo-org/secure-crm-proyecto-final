@@ -19,3 +19,4 @@ docs/INSTRUCTOR.md
 waf-siem/.env
 waf-siem/app-logs/*.log
 .impeccable/
+docker-compose.yml
