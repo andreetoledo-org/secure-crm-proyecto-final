@@ -15,7 +15,7 @@
 
 El siguiente Diagrama de Flujo de Datos (DFD Nivel 1) modela la arquitectura completa de **Secure CRM** integrada con el proxy inverso **WAF (ModSecurity + OWASP CRS)** y el **SIEM (Filebeat + Elasticsearch + Kibana)**, demarcando los cuatro **Límites de Confianza (*Trust Boundaries*, `TB-1` a `TB-4`)**:
 
-![Diagrama de Flujo de Datos (DFD) de Secure CRM con Límites de Confianza](dfd.png)
+![Diagrama de Flujo de Datos (DFD) de Secure CRM con Límites de Confianza](DFD_nivel1.png)
 
 ```mermaid
 flowchart LR
