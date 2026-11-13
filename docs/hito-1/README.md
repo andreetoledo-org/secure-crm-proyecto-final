@@ -75,6 +75,20 @@ Cada categoría de **STRIDE** se aterriza sobre los componentes y archivos reale
 | **D** | **Denegación de servicio** (*Denial of Service*) | **1)** Ráfagas automatizadas de fuerza bruta y escaneo agresivo contra `POST /api/auth/login` y `/api/tickets` (ausencia de *Rate Limiting*).<br>**2)** Explotación de dependencias vulnerables a DoS/ReDoS (`qs`, `braces`, `postcss`). | `P-1: WAF` y `P-3: Backend API`<br>- `apps/api/src/auth.ts`<br>- Árbol de dependencias `pnpm-lock.yaml` | **Pipeline (H2):** SCA `pnpm audit` para detectar CVEs de DoS en dependencias.<br>**SIEM (H3):** Consulta ES\|QL de detección de ráfagas por IP (`COUNT(*) > 20` por minuto) en Kibana y contención en WAF. |
 | **E** | **Elevación de privilegios** (*Elevation of Privilege*) | **1)** Un usuario con rol `viewer` o `agent` modifica el payload de su JWT (`"role": "admin"`) o invoca endpoints administrativos (`GET/POST /api/users`, `DELETE /api/tickets/:id`) sin control RBAC en el servidor.<br>**2)** Ejecución de contenedores Docker como `root` (UID 0). | `P-3: Backend API` y Contenedores<br>- `apps/api/src/middleware/auth.ts`<br>- `apps/api/src/routes/users.ts`<br>- `apps/api/Dockerfile`, `apps/web/Dockerfile` | **Pipeline (H2):** SAST Semgrep (`dockerfile.security.missing-user`).<br>**Código (H4):** Middleware `requireRole('admin')` con verificación criptográfica de JWT y directiva `USER node` en Dockerfiles. |
 
+### Matriz STRIDE por Componente del DFD
+
+La tabla anterior organiza STRIDE por categoría. Esta segunda vista recorre **cada componente del DFD** (procesos `P-*` y almacenes `DS-*`) y le asigna al menos una amenaza STRIDE aplicable con su control, para no dejar ningún elemento del diagrama sin analizar:
+
+| Componente del DFD | Límite | Letra(s) STRIDE aplicable(s) | Amenaza concreta en ese componente | Control por componente |
+|---|---|---|---|---|
+| **P-1 · WAF (ModSecurity + CRS, `:8080`)** | TB-2 | **R, D, E** | **R/E:** evasión del WAF atacando directamente `:4000` (`DF-9`), sin registro en `modsec_audit.json`. **D:** ráfagas/escaneo que saturan la inspección. | Opción B de despliegue (ocultar `:4000` en la red Docker); `MODSEC_RULE_ENGINE=On`; logging de auditoría hacia el SIEM; `BLOCKING_PARANOIA` ajustable. |
+| **P-2 · Frontend Next.js (`:3000`)** | TB-3 | **T, I** | **T/I:** XSS reflejado (término `?q=`) y almacenado (descripción) renderizados con `dangerouslySetInnerHTML` ([`tickets/page.tsx:69`](../../apps/web/app/tickets/page.tsx#L69), [`tickets/[id]/page.tsx:93`](../../apps/web/app/tickets/[id]/page.tsx#L93)); fuga de la cookie `session` sin `HttpOnly`. | Eliminar `dangerouslySetInnerHTML`/escapar salida; cabecera `Content-Security-Policy`; cookie `HttpOnly`+`Secure`+`SameSite`. |
+| **P-3 · Backend API Express (`:4000`)** | TB-3 | **S, T, R, I, E** | **S:** SQLi en login y JWT sin verificar firma. **T/E:** mass assignment de `role` y falta de RBAC. **I:** fuga de hashes y stack traces. **R:** acciones destructivas sin auditoría propia. | Consultas parametrizadas; `jwt.verify()`; `requireRole`; lista blanca de campos; ocultar errores 500; `helmet`; registrar eventos de seguridad hacia el SIEM. |
+| **DS-1 · SQLite (`crm.db`)** | TB-3 | **I, T** | **I:** volcado de `users`/`tickets` vía SQLi. **T:** modificación/borrado de registros sin control de acceso. | Consultas parametrizadas; principio de mínimo privilegio en el acceso a datos; hashing fuerte (PBKDF2/argon2) de `password_hash`. |
+| **P-4 · Filebeat** | TB-4 | **T, I** | **T:** manipulación de los logs en tránsito o del archivo de auditoría. **I:** los logs pueden contener cuerpos de peticiones con credenciales de prueba. | Volumen de solo lectura hacia los logs; red SIEM aislada; no registrar secretos (CWE-532); en producción, canal cifrado a Elasticsearch. |
+| **DS-2 · Elasticsearch (`:9200`)** | TB-4 | **I, D, S** | **I/S:** seguridad de Elastic deshabilitada en el laboratorio (acceso sin auth). **D:** saturación del índice `filebeat-*`. | Enlazado solo a `127.0.0.1`; en producción, habilitar `xpack.security`, autenticación y TLS; política de retención/ILM. |
+| **P-5 · Kibana (`:5601`)** | TB-4 | **S, E** | **S/E:** acceso sin autenticación al SIEM permitiría leer o alterar tableros y reglas de detección. | Enlazado solo a `127.0.0.1`; en producción, autenticación y RBAC de Kibana; espacios y roles de solo lectura para el Blue Team. |
+
 ---
 
 ## 3. Metodología PASTA (Etapas 1 a 5)
@@ -99,7 +113,7 @@ El entorno técnico bajo análisis comprende los siguientes activos y tecnologí
 ### Etapa 3 · Descomposición de la aplicación (*Application Decomposition*)
 La aplicación se descompone en los siguientes módulos funcionales y flujos de confianza:
 1. **Módulo de Autenticación y Sesión (`apps/api/src/auth.ts`, `hash.ts`, `middleware/auth.ts`):**
-   - Recibe credenciales en `POST /api/auth/login`, calcula el hash de la contraseña con `hashPassword()` y consulta la tabla `users`.
+   - Recibe credenciales en `POST /api/auth/login`, calcula el hash de la contraseña con `weakHash()` ([`apps/api/src/hash.ts:6`](../../apps/api/src/hash.ts#L6), MD5 sin salt) y consulta la tabla `users`.
    - Emite un token JWT firmado con `JWT_SECRET` (`secret123`) y establece la cookie `session` en el navegador.
    - El middleware `requireAuth` intercepta las peticiones a rutas protegidas leyendo el encabezado `Authorization: Bearer <token>` o la cookie `session`.
 2. **Módulo de Gestión de Tickets (`apps/api/src/routes/tickets.ts`):**
@@ -140,22 +154,37 @@ Integrando los hallazgos confirmados en el **Proyecto DAST y SAST/SCA** sobre **
 
 ### Inventario de Rutas, Métodos, Roles y Vectores de Explotación
 
-| Método | Ruta (a través del WAF `:8080`) | Autenticación / Rol Esperado | Parámetros / Cuerpo de Entrada | Hallazgos del DAST Asociados y Uso como PoC en Hito 2 |
-|---|---|---|---|---|
-| `GET` | `/api/health` | Público | Ninguno | Verificación de disponibilidad a través del WAF (`:8080`) y prueba de **Bypass directo en `:4000`**. |
-| `POST` | `/api/auth/login` | Público | JSON: `{ "username", "password" }` | **[PoC-01 · SQLi]** Bypass de login con `' OR '1'='1' --` (CWE-89). También vulnerable a fuerza bruta (CWE-307) y emite cookie `session` sin `HttpOnly` (CWE-1004). |
-| `GET` | `/api/dashboard` | JWT (`viewer`, `agent`, `admin`) | Header `Authorization` / Cookie `session` | Acepta tokens JWT con firma inválida por uso de `jwt.decode()` (CWE-347). |
-| `GET` | `/api/tickets` | JWT (`viewer`, `agent`, `admin`) | Query param `?q=<texto>` | **[PoC-01b · SQLi]** Inyección SQL en el filtro de búsqueda `?q=` (CWE-89) que permite extraer datos de la BD. |
-| `GET` | `/api/tickets/:id` | JWT (`viewer`, `agent`, `admin`) | Path param `:id` | **[PoC-03 · IDOR]** Permite a cualquier usuario autenticado leer tickets confidenciales de otros usuarios/clientes (CWE-639). |
-| `POST` | `/api/tickets` | JWT (`agent`, `admin`) | JSON: `{ "title", "description", "priority", "customerEmail" }` | **[PoC-02 · XSS Almacenado]** Almacena payloads HTML/JS (`<script>`, `<img onerror>`) sin sanitizar (CWE-79), que luego se ejecutan en el navegador vía `dangerouslySetInnerHTML`. |
-| `PUT` | `/api/tickets/:id` | JWT (`agent`, `admin`) | JSON: `{ "title", "description", "status", "priority", "assignedTo" }` | Vulnerable a XSS Almacenado (CWE-79) y modificación sin validar pertenencia del ticket. En modo `On` del WAF dispara la regla CRS `911100` si `PUT` no está en `ALLOWED_METHODS`. |
-| `DELETE` | `/api/tickets/:id` | JWT (`admin`) | Path param `:id` | **[PoC-03b · Broken Access Control / Método HTTP]** Permite borrar tickets sin validar rol `admin` en el backend (CWE-862) y dispara la regla CRS `911100` en el WAF (`DET-03`). |
-| `GET` | `/api/users` | JWT (`admin`) | Header `Authorization` | Expone la columna `password_hash` con hashes **MD5 sin salt** (CWE-327) y es accesible forjando `"role": "admin"` en el JWT sin firma válida (CWE-347). |
-| `POST` | `/api/users` | JWT (`admin`) | JSON: `{ "username", "email", "password", "role" }` | Vulnerable a *Mass Assignment* de rol (CWE-915) y almacenamiento de contraseña en MD5 (CWE-327). |
-| `PUT` | `/api/users/:id/role` | JWT (`admin`) | JSON: `{ "role" }` | Escalada de privilegios si se combina con un JWT manipulado (CWE-347 / CWE-862). |
+> **Nota de cobertura del WAF.** La tabla lista la ruta **a través del WAF (`:8080`)**, que es por donde se ejecutan las pruebas según las reglas de enfrentamiento. Pero en el despliegue local (Opción A) **la UI (`http://localhost:3000`) y la API (`http://localhost:4000`) responden directamente, sin pasar por el WAF**: cada fila tiene por tanto un camino `:8080` (inspeccionado, columna "¿Pasa por el WAF?" = Sí) y un camino directo `:4000`/`:3000` (no inspeccionado) que constituye el bypass `DF-9` / `CA-05` / `V-10`.
+
+| Método | Ruta (a través del WAF `:8080`) | ¿Pasa por el WAF? | Autenticación / Rol Esperado | Parámetros / Cuerpo de Entrada | Hallazgos del DAST Asociados y Uso como PoC en Hito 2 |
+|---|---|---|---|---|---|
+| `GET` | `/api/health` | Sí por `:8080` / **No** por `:4000` | Público | Ninguno | Verificación de disponibilidad a través del WAF (`:8080`) y prueba de **Bypass directo en `:4000`**. |
+| `POST` | `/api/auth/login` | Sí por `:8080` / **No** por `:4000` | Público | JSON: `{ "username", "password" }` | **[PoC-01 · SQLi]** Bypass de login con `' OR '1'='1' --` (CWE-89). También vulnerable a fuerza bruta (CWE-307) y emite cookie `session` sin `HttpOnly` (CWE-1004). |
+| `GET` | `/api/dashboard` | Sí por `:8080` / **No** por `:4000` | JWT (`viewer`, `agent`, `admin`) | Header `Authorization` / Cookie `session` | Acepta tokens JWT con firma inválida por uso de `jwt.decode()` (CWE-347). |
+| `GET` | `/api/tickets` | Sí por `:8080` / **No** por `:4000` | JWT (`viewer`, `agent`, `admin`) | Query param `?q=<texto>` | **[PoC-02 · XSS reflejado / SQLi]** El filtro `?q=` se concatena en SQL (CWE-89) y se refleja sin escapar en el front (CWE-79). |
+| `GET` | `/api/tickets/:id` | Sí por `:8080` / **No** por `:4000` | JWT (`viewer`, `agent`, `admin`) | Path param `:id` | **[PoC-03 · IDOR]** Permite a cualquier usuario autenticado leer tickets confidenciales de otros usuarios/clientes (CWE-639). |
+| `POST` | `/api/tickets` | Sí por `:8080` / **No** por `:4000` | JWT (`agent`, `admin`) | JSON: `{ "title", "description", "priority", "customerEmail" }` | **[PoC-02 · XSS Almacenado]** Almacena payloads HTML/JS (`<script>`, `<img onerror>`) sin sanitizar (CWE-79), que luego se ejecutan en el navegador vía `dangerouslySetInnerHTML`. |
+| `PUT` | `/api/tickets/:id` | Sí por `:8080` / **No** por `:4000` | JWT (`agent`, `admin`) | JSON: `{ "title", "description", "status", "priority", "assignedTo" }` | Vulnerable a XSS Almacenado (CWE-79) y modificación sin validar pertenencia del ticket. En modo `On` del WAF dispara la regla CRS `911100` si `PUT` no está en `ALLOWED_METHODS`. |
+| `DELETE` | `/api/tickets/:id` | Sí por `:8080` / **No** por `:4000` | JWT (`admin`) | Path param `:id` | **[PoC-03 · Broken Access Control / Método HTTP]** Permite borrar tickets sin validar rol `admin` en el backend (CWE-862) y dispara la regla CRS `911100` en el WAF (`DET-03`). |
+| `GET` | `/api/users` | Sí por `:8080` / **No** por `:4000` | JWT (`admin`) | Header `Authorization` | **[PoC-04]** Expone la columna `password_hash` con hashes **MD5 sin salt** (CWE-327) y es accesible con un JWT de firma inválida porque usa `jwt.decode()` (CWE-347); no comprueba rol. |
+| `POST` | `/api/users` | Sí por `:8080` / **No** por `:4000` | JWT (`admin`) | JSON: `{ "username", "email", "password", "role" }` | Vulnerable a *Mass Assignment* de rol (CWE-915) y almacenamiento de contraseña en MD5 (CWE-327). |
+| `PUT` | `/api/users/:id/role` | Sí por `:8080` / **No** por `:4000` | JWT (`admin`) | JSON: `{ "role" }` | Escalada de privilegios si se combina con un JWT manipulado (CWE-347 / CWE-862). |
 
 > **Hallazgo de Bypass del WAF documentado (Opción A):**
 > Al ejecutar la aplicación con su puerto original publicado en el host (`http://localhost:4000/api/health` responde `200 OK`), existe un camino directo (`DF-9` en el DFD) que permite evadir el límite de confianza `TB-2` (WAF ModSecurity en `:8080`). Durante todo el proyecto, las pruebas ofensivas y defensivas se ejecutan a través de `http://localhost:8080` según las reglas de enfrentamiento, y este bypass queda registrado como hallazgo arquitectónico (mitigable con la Opción B, ocultando el puerto `4000` dentro de la red interna de Docker Compose).
+
+### Equivalencia de numeración entre Hito 1 y Hito 2
+
+Los identificadores de vulnerabilidad de este Hito 1 (`V-*`), los casos de abuso (`CA-*`) y las fichas de PoC del [Hito 2](../hito-2/README.md) se corresponden así (la imagen `superficie.png` usa las etiquetas PoC de Hito 2):
+
+| Hito 1 · Vulnerabilidad (`V-*`) | Hito 1 · Caso de abuso (`CA-*`) | Hito 2 · Ficha PoC | Tema |
+|---|---|---|---|
+| V-01 | CA-01 | **PoC-01** | SQLi en el login (CWE-89) |
+| V-02 | CA-02 | **PoC-02** | XSS reflejado en búsqueda + almacenado en descripción (CWE-79) |
+| V-03 | CA-03 | **PoC-03** | IDOR y DELETE sin control de acceso (CWE-639 / CWE-862) |
+| V-04 + V-05 | CA-04 | **PoC-04** | JWT sin verificar firma (CWE-347) + fuga de hashes MD5 (CWE-327) |
+| V-09 | CA-06 | *(control del pipeline)* | Supply chain / dependencias (CWE-1395) |
+| V-06, V-07, V-08, V-10 | CA-05 (bypass) | *(soporte / contexto)* | Misconfig, CORS, mass assignment, bypass del WAF |
 
 ---
 

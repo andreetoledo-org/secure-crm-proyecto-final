@@ -34,7 +34,13 @@ services:
       - waf-logs:/logs
 
   waf:
-    image: owasp/modsecurity-crs:nginx
+    # E: es FAT32: Docker Desktop no puede hacer bind mounts desde ahí, así que las
+    # exclusiones se copian en la imagen. Tras editarlas: docker compose up -d --build waf
+    build:
+      context: ./waf
+      dockerfile_inline: |
+        FROM owasp/modsecurity-crs:nginx
+        COPY REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf /etc/modsecurity.d/owasp-crs/rules/
     restart: unless-stopped
     depends_on:
       waf-logs-init:
@@ -59,9 +65,6 @@ services:
       - "${WAF_BIND:-127.0.0.1}:${WAF_PORT:-8080}:8080"
     volumes:
       - waf-logs:/var/log/waf
-      # Ajuste de falsos positivos (Hito 3): editen estos archivos y reinicien el WAF
-      - ./waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
-      - ./waf/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf:ro
 
   # ── Opción B (recomendada si su app ya tiene Dockerfile) ──────────────────
   # Descomenten y ajusten. Sin "ports:", la app solo es accesible a través del WAF.
@@ -112,7 +115,15 @@ services:
       start_period: 60s
 
   filebeat:
-    image: docker.elastic.co/beats/filebeat:${ELASTIC_VERSION:-9.3.3}
+    # filebeat.yml se copia en la imagen (mismo motivo). Tras editarlo: docker compose up -d --build filebeat
+    build:
+      context: .
+      dockerfile_inline: |
+        ARG ELASTIC_VERSION
+        FROM docker.elastic.co/beats/filebeat:$${ELASTIC_VERSION}
+        COPY filebeat.yml /usr/share/filebeat/filebeat.yml
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION:-9.3.3}
     restart: unless-stopped
     user: root
     command: ["filebeat", "-e", "--strict.perms=false"]
@@ -122,7 +133,6 @@ services:
       waf:
         condition: service_started
     volumes:
-      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - waf-logs:/var/log/waf:ro
       # Opcional: logs de su aplicación (ver filebeat.yml y README, sección 7)
       - ${APP_LOGS_DIR:-./app-logs}:/var/log/app:ro
