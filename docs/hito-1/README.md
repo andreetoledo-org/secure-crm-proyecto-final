@@ -17,6 +17,8 @@ El siguiente Diagrama de Flujo de Datos (DFD Nivel 1) modela la arquitectura com
 
 ![Diagrama de Flujo de Datos (DFD) de Secure CRM con Límites de Confianza](DFD_nivel1.png)
 
+![Catálogo de Flujos de Datos (DF-1 a DF-9)](catalogo_flujo_datos.png)
+
 ```mermaid
 flowchart LR
   subgraph TB1["TB-1: Zona No Confiable (Cliente / Red Externa)"]
@@ -109,6 +111,44 @@ El entorno técnico bajo análisis comprende los siguientes activos y tecnologí
 - **Base de Datos (`apps/api/data/crm.db`):** Motor relacional embebido **SQLite** accedido mediante el driver nativo síncrono `better-sqlite3`, con dos tablas principales: `users` y `tickets`.
 - **Defensa Perimetral WAF (`waf-siem`):** Contenedor Docker `owasp/modsecurity-crs:nginx` expuesto en `http://127.0.0.1:8080`, operando con **ModSecurity v3** y **OWASP Core Rule Set (CRS)** (`BLOCKING_PARANOIA=1`), inicialmente en `MODSEC_RULE_ENGINE=DetectionOnly` (Hitos 0–2) y posteriormente en `MODSEC_RULE_ENGINE=On` (Hito 3).
 - **Monitoreo SIEM (`waf-siem`):** Stack **Elastic 9.3.3** en Docker Compose conformado por **Filebeat** (ingesta de `/var/log/waf/access.log` y `/var/log/waf/modsec_audit.json`), **Elasticsearch** (`http://127.0.0.1:9200`) y **Kibana** (`http://127.0.0.1:5601`).
+
+#### Diagrama y Matriz de Trazabilidad: Etapa 1 (Objetivos) ↔ Etapa 2 (Alcance Técnico) ↔ Flujos DFD y Etapa 5
+
+```mermaid
+flowchart LR
+  subgraph E1["ETAPA 1 DE PASTA · Objetivos del Negocio"]
+    O1["Obj 1 · Confidencialidad\nDatos de clientes (tickets)\ny credenciales de usuarios"]
+    O2["Obj 2 · Integridad Operativa\nSolo roles autorizados crean,\neditan o eliminan tickets/usuarios"]
+    O3["Obj 3 · Disponibilidad y Trazabilidad\nContinuidad del servicio y\nregistro en tiempo real en SIEM"]
+    O4["Obj 4 · Cumplimiento SSDLC\nCero vulnerabilidades Críticas/Altas\nsin pasar por controles CI/CD"]
+  end
+
+  subgraph E2["ETAPA 2 DE PASTA · Alcance Técnico y Flujos DFD"]
+    T1["SQLite (crm.db / better-sqlite3)\n+ Express (:4000 hash.ts / auth.ts)\n+ Next.js 14 (:3000) · Flujos DF-1, DF-2, DF-4, DF-5"]
+    T2["Middleware JWT (jsonwebtoken)\n+ Rutas /api/tickets y /api/users\n+ WAF CRS (:8080 regla 911100) · Flujos DF-2..DF-5"]
+    T3["WAF ModSecurity (:8080 modsec_audit.json)\n+ Filebeat -> Elasticsearch (:9200)\n+ Kibana SIEM (:5601) · Flujos DF-6, DF-7, DF-8"]
+    T4["Monorepo pnpm@10.12.1 (pnpm-lock.yaml)\n+ Dockerfiles (node:20-bookworm)\n+ GitHub Actions (Semgrep, pnpm audit, Syft, ZAP)"]
+  end
+
+  subgraph E5["ETAPA 5 DE PASTA · Vulnerabilidades que lo Amenazan"]
+    V1["V-01 (SQLi CWE-89)\nV-05 (MD5 sin salt CWE-327)\nV-06 (Cookie sin HttpOnly)"]
+    V2["V-02 (XSS CWE-79)\nV-03 (IDOR y DELETE sin RBAC)\nV-04 (jwt.decode sin verificar firma)\nV-08 (Mass Assignment de rol)"]
+    V3["V-08 (Sin Rate Limiting en Login)\nV-10 (Bypass WAF por puerto :4000 · DF-9)"]
+    V4["V-09 (CVEs en lodash, jsonwebtoken, qs, next)\nV-10 (Contenedores corriendo como root)"]
+  end
+
+  O1 --> T1 --> V1
+  O2 --> T2 --> V2
+  O3 --> T3 --> V3
+  O4 --> T4 --> V4
+```
+
+| Objetivo de Negocio (Etapa 1) | Componentes del Alcance Técnico que lo Soportan (Etapa 2) | Flujos del DFD Asociados | Vulnerabilidades (Etapa 5) y Requisitos (Sección 5) |
+|---|---|---|---|
+| **1. Confidencialidad de clientes y empleados** | **SQLite (`crm.db` / `better-sqlite3`)**, **Express (`:4000` `auth.ts`, `hash.ts`)** y **Next.js 14 (`:3000`)**. | `DF-1`, `DF-2`, `DF-4`, `DF-5` (y riesgo en `DF-3` / `DF-9`) | `V-01`, `V-05`, `V-06`, `V-07` · Mitigado por `RS-01`, `RS-03`, `RS-04` |
+| **2. Integridad operativa del flujo de soporte** | **Middleware JWT (`jsonwebtoken` en `middleware/auth.ts`)**, rutas `/api/tickets` y `/api/users` en **Express (`:4000`)**, **WAF CRS (`:8080`, `911100` / `941*`)** y tablas `tickets`/`users` en **SQLite**. | `DF-2` → `DF-4` → `DF-5` (ataque en `DF-3` / `DF-9` y auditoría en `DF-6..8`) | `V-02`, `V-03`, `V-04`, `V-08` · Mitigado por `RS-02`, `RS-03`, `RS-06` |
+| **3. Disponibilidad y trazabilidad ante incidentes** | **WAF (`owasp/modsecurity-crs:nginx` `:8080`)**, volumen `waf-logs` (`modsec_audit.json`), **Filebeat**, **Elasticsearch (`:9200`)** y **Kibana (`:5601`)**. | `DF-6` → `DF-7` → `DF-8` | `V-08` (Fuerza bruta), `V-10` (Bypass `:4000` `DF-9`) · Mitigado por `RS-07`, `RS-08` |
+| **4. Cumplimiento en el ciclo de desarrollo (SSDLC)** | Monorepo **`pnpm@10.12.1` (`pnpm-lock.yaml`)**, `Dockerfile`s (`node:20-bookworm`) y pipeline **`.github/workflows/devsecops.yml`** (**Semgrep**, **`pnpm audit`**, **Syft CycloneDX**, **OWASP ZAP**). | Transversal a `TB-3` (`P-2`, `P-3`, `DS-1`) en CI/CD | `V-05`, `V-06`, `V-09`, `V-10` · Mitigado por `RS-04`, `RS-05`, `RS-08` |
 
 ### Etapa 3 · Descomposición de la aplicación (*Application Decomposition*)
 La aplicación se descompone en los siguientes módulos funcionales y flujos de confianza:
