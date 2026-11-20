@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { weakHash } from '../hash';
+import { hashPassword } from '../hash';
 import { authenticate, requireRole, AuthedRequest } from '../middleware/auth';
 
 export const usersRouter = Router();
@@ -64,7 +64,7 @@ usersRouter.post('/', requireRole('admin'), (req: AuthedRequest, res) => {
         email: typeof b.email === 'string' ? b.email : '',
         full_name: typeof b.fullName === 'string' && b.fullName ? b.fullName : b.username,
         role,
-        password_hash: weakHash(b.password),
+        password_hash: hashPassword(b.password),
       });
     const r = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any;
     res.status(201).json(toPublicUser(r));

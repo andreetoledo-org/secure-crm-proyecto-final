@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from './db';
-import { weakHash } from './hash';
+import { DUMMY_HASH, verifyPassword } from './hash';
 import { JWT_ALGORITHM, JWT_EXPIRES_IN, JWT_SECRET } from './config';
 
 export const authRouter = Router();
@@ -28,12 +28,13 @@ authRouter.post('/login', (req, res) => {
     return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
   }
 
-  const hashed = weakHash(password);
-  const row = db
-    .prepare('SELECT * FROM users WHERE username = ? AND password_hash = ?')
-    .get(username, hashed) as any;
+  // Hito 4 (PoC-04 / CWE-327): la contraseña se verifica en código con PBKDF2 y
+  // comparación en tiempo constante. Si el usuario no existe se verifica contra
+  // DUMMY_HASH para que el tiempo de respuesta no revele qué usuarios existen.
+  const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as any;
+  const passwordOk = verifyPassword(password, row?.password_hash ?? DUMMY_HASH);
 
-  if (!row) {
+  if (!row || !passwordOk) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
 

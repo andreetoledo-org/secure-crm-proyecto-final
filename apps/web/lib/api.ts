@@ -37,7 +37,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // Respuesta no JSON (p. ej. la página HTML del 403 del WAF).
+    data = { error: res.status === 403 ? 'Solicitud bloqueada (403)' : `Error ${res.status}` };
+  }
   if (!res.ok) {
     throw new Error(data?.error || data?.message || `Error ${res.status}`);
   }
