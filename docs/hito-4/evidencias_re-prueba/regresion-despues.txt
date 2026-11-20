@@ -1,0 +1,32 @@
+# Prueba de regresion - DESPUES de la correccion
+# Codigo: main con los commits d10aee3, 9015244 y 865d704
+# Destino: http://localhost:8080 (WAF en DetectionOnly)
+# Fecha: 2026-11-20 16:02:51 (hora local, GMT-6)
+# Comando: node --test --test-reporter=spec tests/regresion/
+# Resultado esperado: las 13 pruebas PASAN (el ataque ya no funciona)
+
+▶ PoC-03 · control de acceso por rol y propiedad
+  ✔ un viewer no puede leer un ticket ajeno (404) (760.965ms)
+  ✔ un viewer no puede eliminar un ticket (403) y el ticket sigue existiendo (539.5106ms)
+  ✔ un viewer no puede crear tickets (403) (145.7503ms)
+✔ PoC-03 · control de acceso por rol y propiedad (1447.7877ms)
+▶ PoC-04 · verificación del JWT y exposición de hashes
+  ✔ un token con firma inválida responde 401 (13.6264ms)
+  ✔ un token sin firma (alg: none) responde 401 (11.3383ms)
+  ✔ un viewer no puede listar usuarios (403) (177.5373ms)
+  ✔ el admin lista usuarios sin passwordHash (173.3945ms)
+✔ PoC-04 · verificación del JWT y exposición de hashes (376.513ms)
+✔ PoC-01: el login con  admin' OR '1'='1' --  responde 401 y no entrega token (595.1107ms)
+✔ PoC-01: una comilla suelta no rompe la consulta ni filtra el SQL (CWE-209) (418.514ms)
+✔ PoC-01/02: la búsqueda de tickets trata la inyección como texto literal (272.2602ms)
+✔ PoC-02: las páginas de la web no renderizan datos como HTML crudo (dangerouslySetInnerHTML) (7.284ms)
+✔ PoC-02: la cookie de sesión es HttpOnly y SameSite=Strict (723.549ms)
+✔ PoC-02: la API envía cabeceras de defensa (CSP, nosniff, X-Frame-Options) y no anuncia Express (274.6268ms)
+ℹ tests 13
+ℹ suites 2
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1924.9948

@@ -1,0 +1,490 @@
+# Prueba de regresion - ANTES de la correccion
+# Codigo: commit 0d6fada (ultimo commit antes de los fixes del Hito 4)
+# Destino: http://localhost:8080 (WAF en DetectionOnly)
+# Fecha: 2026-11-20 16:02:13 (hora local, GMT-6)
+# Comando: node --test --test-reporter=spec tests/regresion/
+# Resultado esperado: las 13 pruebas FALLAN (el ataque funciona)
+
+▶ PoC-03 · control de acceso por rol y propiedad
+  ✖ un viewer no puede leer un ticket ajeno (404) (680.8585ms)
+    AssertionError [ERR_ASSERTION]: El viewer leyó el ticket 1 del admin (IDOR): HTTP 200 · {"id":1,"title":"No puedo iniciar sesión en el portal","description":"El cliente reporta error 500 al ingresar sus credenciales.","status":"open","priority":"low","customerName":"Comercial El Quetzal","customerEmail":"contacto@elquetzal.gt","assigneeId":2,"assigneeName":"Juan Pérez","createdById":1,
+    
+    200 !== 404
+    
+        at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:25:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Test.run (node:internal/test_runner/test:797:9)
+        at async Promise.all (index 0)
+        at async Suite.run (node:internal/test_runner/test:1135:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+      generatedMessage: false,
+      code: 'ERR_ASSERTION',
+      actual: 200,
+      expected: 404,
+      operator: 'strictEqual'
+    }
+
+  ✖ un viewer no puede eliminar un ticket (403) y el ticket sigue existiendo (35.7128ms)
+    AssertionError [ERR_ASSERTION]: El viewer pudo eliminar el ticket 1: HTTP 200 · {"ok":true}
+    
+    200 !== 403
+    
+        at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:31:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Test.run (node:internal/test_runner/test:797:9)
+        at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+      generatedMessage: false,
+      code: 'ERR_ASSERTION',
+      actual: 200,
+      expected: 403,
+      operator: 'strictEqual'
+    }
+
+  ✖ un viewer no puede crear tickets (403) (28.139ms)
+    AssertionError [ERR_ASSERTION]: El viewer pudo crear un ticket: HTTP 201 · {"id":13,"title":"regresion-viewer","description":"no debería crearse","status":"open","priority":"medium","customerName":"","customerEmail":"","assigneeId":null,"assigneeName":null,"createdById":4,"createdByName":"Víctor Vista","createdAt":"2026-11-20 22:02:13","updatedAt":"2026-11-20 22:02:13"}
+    
+    201 !== 403
+    
+        at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:45:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Test.run (node:internal/test_runner/test:797:9)
+        at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+      generatedMessage: false,
+      code: 'ERR_ASSERTION',
+      actual: 201,
+      expected: 403,
+      operator: 'strictEqual'
+    }
+
+✖ PoC-03 · control de acceso por rol y propiedad (748.0378ms)
+▶ PoC-04 · verificación del JWT y exposición de hashes
+  ✖ un token con firma inválida responde 401 (9.7005ms)
+    AssertionError [ERR_ASSERTION]: Se aceptó un token con firma inválida: HTTP 200 · [{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","passwordHash":"2637a5c30af69a7bad877fdb65fbd78b","createdAt":"2026-11-20 22:01:55"},{"id":2,"username":"jperez","email":"jperez@secure-crm.local","fullName":"Juan Pérez","role":"agent","passw
+    
+    200 !== 401
+    
+        at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:52:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Test.run (node:internal/test_runner/test:797:9)
+        at async Promise.all (index 0)
+        at async Suite.run (node:internal/test_runner/test:1135:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+      generatedMessage: false,
+      code: 'ERR_ASSERTION',
+      actual: 200,
+      expected: 401,
+      operator: 'strictEqual'
+    }
+
+  ✖ un token sin firma (alg: none) responde 401 (8.9754ms)
+    AssertionError [ERR_ASSERTION]: Se aceptó un token sin firma: HTTP 200 · [{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","passwordHash":"2637a5c30af69a7bad877fdb65fbd78b","createdAt":"2026-11-20 22:01:55"},{"id":2,"username":"jperez","email":"jperez@secure-crm.local","fullName":"Juan Pérez","role":"agent","passw
+    
+    200 !== 401
+    
+        at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:57:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Test.run (node:internal/test_runner/test:797:9)
+        at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+      generatedMessage: false,
+      code: 'ERR_ASSERTION',
+      actual: 200,
+      expected: 401,
+      operator: 'strictEqual'
+    }
+
+  ✖ un viewer no puede listar usuarios (403) (18.5655ms)
+    AssertionError [ERR_ASSERTION]: El viewer listó los usuarios: HTTP 200 · [{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","passwordHash":"2637a5c30af69a7bad877fdb65fbd78b","createdAt":"2026-11-20 22:01:55"},{"id":2,"username":"jperez","email":"jperez@secure-crm.local","fullName":"Juan Pérez","role":"agent","passw
+    
+    200 !== 403
+    
+        at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:63:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Test.run (node:internal/test_runner/test:797:9)
+        at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+      generatedMessage: false,
+      code: 'ERR_ASSERTION',
+      actual: 200,
+      expected: 403,
+      operator: 'strictEqual'
+    }
+
+  ✖ el admin lista usuarios sin passwordHash (19.9433ms)
+    AssertionError [ERR_ASSERTION]: La API devuelve el hash de: admin, jperez, mlopez, viewer
+    + actual - expected
+    
+    + [
+    +   'admin',
+    +   'jperez',
+    +   'mlopez',
+    +   'viewer'
+    + ]
+    - []
+        at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:71:12)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Test.run (node:internal/test_runner/test:797:9)
+        at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+      generatedMessage: false,
+      code: 'ERR_ASSERTION',
+      actual: [ 'admin', 'jperez', 'mlopez', 'viewer' ],
+      expected: [],
+      operator: 'deepStrictEqual'
+    }
+
+✖ PoC-04 · verificación del JWT y exposición de hashes (57.8487ms)
+✖ PoC-01: el login con  admin' OR '1'='1' --  responde 401 y no entrega token (376.2292ms)
+  AssertionError [ERR_ASSERTION]: El bypass del login sigue funcionando: HTTP 200 · {"token":"<JWT redactado>","user":{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","createdAt":"
+  
+  200 !== 401
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/sql-injection.test.mjs:16:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 401,
+    operator: 'strictEqual'
+  }
+
+✖ PoC-01: una comilla suelta no rompe la consulta ni filtra el SQL (CWE-209) (296.912ms)
+  AssertionError [ERR_ASSERTION]: La comilla alteró la consulta: HTTP 500 · {"error":"Error en la consulta","sql":"SELECT * FROM users WHERE username = ''' AND password_hash = '9dd4e461268c8034f5c8564e155c67a6'","detail":"unrecognized token: \"9dd4e461268c8034f5c8564e155c67a6\""}
+  
+  500 !== 401
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/sql-injection.test.mjs:24:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 401,
+    operator: 'strictEqual'
+  }
+
+✖ PoC-01/02: la búsqueda de tickets trata la inyección como texto literal (38.7174ms)
+  AssertionError [ERR_ASSERTION]: La inyección en ?q= devolvió 11 tickets (debía tratarse como texto)
+  
+  11 !== 0
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/sql-injection.test.mjs:36:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 11,
+    expected: 0,
+    operator: 'strictEqual'
+  }
+
+✖ PoC-02: las páginas de la web no renderizan datos como HTML crudo (dangerouslySetInnerHTML) (74.5159ms)
+  AssertionError [ERR_ASSERTION]: Puntos de XSS encontrados:
+    apps\web\app\tickets\page.tsx:69
+    apps\web\app\tickets\page.tsx:99
+    apps\web\app\tickets\[id]\page.tsx:93
+  + actual - expected
+  
+  + [
+  +   'apps\\web\\app\\tickets\\page.tsx:69',
+  +   'apps\\web\\app\\tickets\\page.tsx:99',
+  +   'apps\\web\\app\\tickets\\[id]\\page.tsx:93'
+  + ]
+  - []
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/xss.test.mjs:37:10)
+      at Test.runInAsyncScope (node:async_hooks:206:9)
+      at Test.run (node:internal/test_runner/test:796:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+      at node:internal/test_runner/harness:255:12
+      at node:internal/process/task_queues:140:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:206:9)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:137:8) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'apps\\web\\app\\tickets\\page.tsx:69', 'apps\\web\\app\\tickets\\page.tsx:99', 'apps\\web\\app\\tickets\\[id]\\page.tsx:93' ],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+✖ PoC-02: la cookie de sesión es HttpOnly y SameSite=Strict (332.5881ms)
+  AssertionError [ERR_ASSERTION]: La cookie se puede leer desde JavaScript: 50IiwiaWF0IjoxNzk1MjEyMTMzfQ.Fgw3qtUMTgm9l0KKqFKnbiPVCIwagv1olCWkJBRw1Tw; Path=/
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/xss.test.mjs:45:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'session=<JWT redactado>; Path=/',
+    expected: /;\s*HttpOnly/i,
+    operator: 'match'
+  }
+
+✖ PoC-02: la API envía cabeceras de defensa (CSP, nosniff, X-Frame-Options) y no anuncia Express (291.1999ms)
+  AssertionError [ERR_ASSERTION]: Falta X-Content-Type-Options: nosniff
+  + actual - expected
+  
+  + null
+  - 'nosniff'
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/xss.test.mjs:52:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 'nosniff',
+    operator: 'strictEqual'
+  }
+
+ℹ tests 13
+ℹ suites 2
+ℹ pass 0
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 916.2258
+
+✖ failing tests:
+
+test at tests\regresion\access-control.test.mjs:22:3
+✖ un viewer no puede leer un ticket ajeno (404) (680.8585ms)
+  AssertionError [ERR_ASSERTION]: El viewer leyó el ticket 1 del admin (IDOR): HTTP 200 · {"id":1,"title":"No puedo iniciar sesión en el portal","description":"El cliente reporta error 500 al ingresar sus credenciales.","status":"open","priority":"low","customerName":"Comercial El Quetzal","customerEmail":"contacto@elquetzal.gt","assigneeId":2,"assigneeName":"Juan Pérez","createdById":1,
+  
+  200 !== 404
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:25:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1135:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 404,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\access-control.test.mjs:28:3
+✖ un viewer no puede eliminar un ticket (403) y el ticket sigue existiendo (35.7128ms)
+  AssertionError [ERR_ASSERTION]: El viewer pudo eliminar el ticket 1: HTTP 200 · {"ok":true}
+  
+  200 !== 403
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:31:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\access-control.test.mjs:38:3
+✖ un viewer no puede crear tickets (403) (28.139ms)
+  AssertionError [ERR_ASSERTION]: El viewer pudo crear un ticket: HTTP 201 · {"id":13,"title":"regresion-viewer","description":"no debería crearse","status":"open","priority":"medium","customerName":"","customerEmail":"","assigneeId":null,"assigneeName":null,"createdById":4,"createdByName":"Víctor Vista","createdAt":"2026-11-20 22:02:13","updatedAt":"2026-11-20 22:02:13"}
+  
+  201 !== 403
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:45:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 201,
+    expected: 403,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\access-control.test.mjs:50:3
+✖ un token con firma inválida responde 401 (9.7005ms)
+  AssertionError [ERR_ASSERTION]: Se aceptó un token con firma inválida: HTTP 200 · [{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","passwordHash":"2637a5c30af69a7bad877fdb65fbd78b","createdAt":"2026-11-20 22:01:55"},{"id":2,"username":"jperez","email":"jperez@secure-crm.local","fullName":"Juan Pérez","role":"agent","passw
+  
+  200 !== 401
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:52:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1135:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 401,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\access-control.test.mjs:55:3
+✖ un token sin firma (alg: none) responde 401 (8.9754ms)
+  AssertionError [ERR_ASSERTION]: Se aceptó un token sin firma: HTTP 200 · [{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","passwordHash":"2637a5c30af69a7bad877fdb65fbd78b","createdAt":"2026-11-20 22:01:55"},{"id":2,"username":"jperez","email":"jperez@secure-crm.local","fullName":"Juan Pérez","role":"agent","passw
+  
+  200 !== 401
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:57:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 401,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\access-control.test.mjs:60:3
+✖ un viewer no puede listar usuarios (403) (18.5655ms)
+  AssertionError [ERR_ASSERTION]: El viewer listó los usuarios: HTTP 200 · [{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","passwordHash":"2637a5c30af69a7bad877fdb65fbd78b","createdAt":"2026-11-20 22:01:55"},{"id":2,"username":"jperez","email":"jperez@secure-crm.local","fullName":"Juan Pérez","role":"agent","passw
+  
+  200 !== 403
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:63:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\access-control.test.mjs:66:3
+✖ el admin lista usuarios sin passwordHash (19.9433ms)
+  AssertionError [ERR_ASSERTION]: La API devuelve el hash de: admin, jperez, mlopez, viewer
+  + actual - expected
+  
+  + [
+  +   'admin',
+  +   'jperez',
+  +   'mlopez',
+  +   'viewer'
+  + ]
+  - []
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/access-control.test.mjs:71:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'admin', 'jperez', 'mlopez', 'viewer' ],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+test at tests\regresion\sql-injection.test.mjs:11:1
+✖ PoC-01: el login con  admin' OR '1'='1' --  responde 401 y no entrega token (376.2292ms)
+  AssertionError [ERR_ASSERTION]: El bypass del login sigue funcionando: HTTP 200 · {"token":"<JWT redactado>","user":{"id":1,"username":"admin","email":"admin@secure-crm.local","fullName":"Ada Administradora","role":"admin","createdAt":"
+  
+  200 !== 401
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/sql-injection.test.mjs:16:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 401,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\sql-injection.test.mjs:20:1
+✖ PoC-01: una comilla suelta no rompe la consulta ni filtra el SQL (CWE-209) (296.912ms)
+  AssertionError [ERR_ASSERTION]: La comilla alteró la consulta: HTTP 500 · {"error":"Error en la consulta","sql":"SELECT * FROM users WHERE username = ''' AND password_hash = '9dd4e461268c8034f5c8564e155c67a6'","detail":"unrecognized token: \"9dd4e461268c8034f5c8564e155c67a6\""}
+  
+  500 !== 401
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/sql-injection.test.mjs:24:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 401,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\sql-injection.test.mjs:29:1
+✖ PoC-01/02: la búsqueda de tickets trata la inyección como texto literal (38.7174ms)
+  AssertionError [ERR_ASSERTION]: La inyección en ?q= devolvió 11 tickets (debía tratarse como texto)
+  
+  11 !== 0
+  
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/sql-injection.test.mjs:36:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 11,
+    expected: 0,
+    operator: 'strictEqual'
+  }
+
+test at tests\regresion\xss.test.mjs:26:1
+✖ PoC-02: las páginas de la web no renderizan datos como HTML crudo (dangerouslySetInnerHTML) (74.5159ms)
+  AssertionError [ERR_ASSERTION]: Puntos de XSS encontrados:
+    apps\web\app\tickets\page.tsx:69
+    apps\web\app\tickets\page.tsx:99
+    apps\web\app\tickets\[id]\page.tsx:93
+  + actual - expected
+  
+  + [
+  +   'apps\\web\\app\\tickets\\page.tsx:69',
+  +   'apps\\web\\app\\tickets\\page.tsx:99',
+  +   'apps\\web\\app\\tickets\\[id]\\page.tsx:93'
+  + ]
+  - []
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/xss.test.mjs:37:10)
+      at Test.runInAsyncScope (node:async_hooks:206:9)
+      at Test.run (node:internal/test_runner/test:796:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+      at node:internal/test_runner/harness:255:12
+      at node:internal/process/task_queues:140:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:206:9)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:137:8) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'apps\\web\\app\\tickets\\page.tsx:69', 'apps\\web\\app\\tickets\\page.tsx:99', 'apps\\web\\app\\tickets\\[id]\\page.tsx:93' ],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+test at tests\regresion\xss.test.mjs:40:1
+✖ PoC-02: la cookie de sesión es HttpOnly y SameSite=Strict (332.5881ms)
+  AssertionError [ERR_ASSERTION]: La cookie se puede leer desde JavaScript: 50IiwiaWF0IjoxNzk1MjEyMTMzfQ.Fgw3qtUMTgm9l0KKqFKnbiPVCIwagv1olCWkJBRw1Tw; Path=/
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/xss.test.mjs:45:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'session=<JWT redactado>; Path=/',
+    expected: /;\s*HttpOnly/i,
+    operator: 'match'
+  }
+
+test at tests\regresion\xss.test.mjs:49:1
+✖ PoC-02: la API envía cabeceras de defensa (CSP, nosniff, X-Frame-Options) y no anuncia Express (291.1999ms)
+  AssertionError [ERR_ASSERTION]: Falta X-Content-Type-Options: nosniff
+  + actual - expected
+  
+  + null
+  - 'nosniff'
+      at TestContext.<anonymous> (<copia-0d6fada>/tests/regresion/xss.test.mjs:52:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async Test.run (node:internal/test_runner/test:797:9)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:526:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 'nosniff',
+    operator: 'strictEqual'
+  }

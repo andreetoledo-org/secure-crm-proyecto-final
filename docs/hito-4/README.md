@@ -4,11 +4,11 @@ Las correcciones viven en el código de la aplicación (commits en `main`), no s
 
 ## Uso de IA (guía de la UVG)
 
-| Campo | Detalle |
-|---|---|
-| **Herramienta** | Claude Code (modelo Claude Opus 5.5, Anthropic), extensión de VS Code, con acceso de lectura y escritura al repositorio local |
-| **Quién la usó** | Sofía Velásquez (Equipo Azul) |
-| **Fecha** | 2026-11-19 / 2026-11-20 |
+| Campo                              | Detalle                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Herramienta**              | Claude Code (modelo Claude Opus 5.5, Anthropic), extensión de VS Code, con acceso de lectura y escritura al repositorio local                                                                                                                                                                                                                        |
+| **Quién la usó**           | Sofía Velásquez (Equipo Azul)                                                                                                                                                                                                                                                                                                                       |
+| **Fecha**                    | 2026-11-19 / 2026-11-20                                                                                                                                                                                                                                                                                                                               |
 | **Commits generados con IA** | [`d10aee3`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/d10aee3) · [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704). Los tres llevan la línea `Co-Authored-By: Claude Opus 5.5` |
 
 ### Prompts usados
@@ -42,13 +42,13 @@ vulnerabilidades.
 
 ### Qué aceptó y qué descartó el grupo
 
-| Propuesta de la IA | Decisión del grupo |
-|---|---|
-| Correcciones de PoC-01 a PoC-04 en el código | ✅ **Aceptadas** |
-| Entregar todo en un único cambio grande | ❌ **Descartado.** El grupo revirtió ese primer intento y pidió dividirlo en 3 commits por tema (prompt 2) para que cada uno se pueda revisar y re-probar por separado |
-| Pruebas de regresión automáticas (`sql-injection.test.mjs`, `access-control.test.mjs`) | ❌ **Descartadas en este paso.** La prueba de regresión y la re-prueba le corresponden al Equipo Rojo |
-| Auditoría SAST local con Semgrep ejecutada por la IA | ❌ **Interrumpida por el grupo.** La auditoría la realiza el Equipo Rojo (ver más abajo) |
-| `.env.example`: quitar `JWT_SECRET=secret123` | ✅ Aceptado. El grupo además quitó por su cuenta las variables del WAF (`WAF_PORT`, `MODSEC_RULE_ENGINE`) que estaban mal ubicadas en ese archivo |
+| Propuesta de la IA                                                                           | Decisión del grupo                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Correcciones de PoC-01 a PoC-04 en el código                                                | ✅ **Aceptadas**                                                                                                                                                         |
+| Entregar todo en un único cambio grande                                                     | ❌ **Descartado.** El grupo revirtió ese primer intento y pidió dividirlo en 3 commits por tema (prompt 2) para que cada uno se pueda revisar y re-probar por separado |
+| Pruebas de regresión automáticas (`sql-injection.test.mjs`, `access-control.test.mjs`) | ❌ **Descartadas en este paso.** La prueba de regresión y la re-prueba le corresponden al Equipo Rojo                                                                   |
+| Auditoría SAST local con Semgrep ejecutada por la IA                                        | ❌ **Interrumpida por el grupo.** La auditoría la realiza el Equipo Rojo (ver más abajo)                                                                               |
+| `.env.example`: quitar `JWT_SECRET=secret123`                                            | ✅ Aceptado. El grupo además quitó por su cuenta las variables del WAF (`WAF_PORT`, `MODSEC_RULE_ENGINE`) que estaban mal ubicadas en ese archivo                        |
 
 ---
 
@@ -68,10 +68,10 @@ const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
 const passwordOk = verifyPassword(password, row?.password_hash ?? DUMMY_HASH);
 ```
 
-| Archivo | Cambio |
-|---|---|
-| `apps/api/src/auth.ts` | Consulta parametrizada (`?`). Valida que `username` y `password` sean texto. El error ya no devuelve el SQL ni el mensaje del motor (`CWE-209`) |
-| `apps/api/src/routes/tickets.ts` | La búsqueda `?q=` usa un parámetro con nombre (`LIKE @like`) en lugar de interpolar el término |
+| Archivo                            | Cambio                                                                                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/auth.ts`           | Consulta parametrizada (`?`). Valida que `username` y `password` sean texto. El error ya no devuelve el SQL ni el mensaje del motor (`CWE-209`) |
+| `apps/api/src/routes/tickets.ts` | La búsqueda `?q=` usa un parámetro con nombre (`LIKE @like`) en lugar de interpolar el término                                                   |
 
 **Resultado esperado:** `{"username": "admin' OR '1'='1' --", "password": "x"}` devuelve `401 Credenciales inválidas`, aunque el WAF esté en `DetectionOnly`.
 
@@ -91,12 +91,12 @@ const passwordOk = verifyPassword(password, row?.password_hash ?? DUMMY_HASH);
 <div className="whitespace-pre-wrap break-words text-sm text-ink">{t.description}</div>
 ```
 
-| Archivo | Cambio |
-|---|---|
-| `apps/web/app/tickets/page.tsx` | El término buscado y el título del ticket se muestran como texto (2 `dangerouslySetInnerHTML` eliminados) |
-| `apps/web/app/tickets/[id]/page.tsx` | La descripción se muestra como texto (1 `dangerouslySetInnerHTML` eliminado) |
-| `apps/api/src/auth.ts` | Cookie `session` con `HttpOnly`, `SameSite=strict` y `Secure` en producción (`CWE-1004`) |
-| `apps/web/next.config.mjs` | `Content-Security-Policy` (`object-src 'none'`, `frame-ancestors 'none'`, `base-uri 'self'`…), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, sin `X-Powered-By` (alertas ZAP 10038, 10020, 10021 y 10037 del Hito 2) |
+| Archivo                                | Cambio                                                                                                                                                                                                                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/app/tickets/page.tsx`      | El término buscado y el título del ticket se muestran como texto (2 `dangerouslySetInnerHTML` eliminados)                                                                                                                                                          |
+| `apps/web/app/tickets/[id]/page.tsx` | La descripción se muestra como texto (1 `dangerouslySetInnerHTML` eliminado)                                                                                                                                                                                        |
+| `apps/api/src/auth.ts`               | Cookie `session` con `HttpOnly`, `SameSite=strict` y `Secure` en producción (`CWE-1004`)                                                                                                                                                                    |
+| `apps/web/next.config.mjs`           | `Content-Security-Policy` (`object-src 'none'`, `frame-ancestors 'none'`, `base-uri 'self'`…), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, sin `X-Powered-By` (alertas ZAP 10038, 10020, 10021 y 10037 del Hito 2) |
 
 **Resultado esperado:** `<script>alert(1)</script>` en `?q=` o `<img src=x onerror=…>` en la descripción se muestran como texto literal y no se ejecutan.
 
@@ -110,17 +110,17 @@ const passwordOk = verifyPassword(password, row?.password_hash ?? DUMMY_HASH);
 - **Commit:** `9015244`. *fix(hito-4): verificar firma JWT y aplicar control de acceso por rol en tickets y usuarios (PoC-03, PoC-04)*
 - **Causa raíz:** ninguna ruta validaba el rol ni la propiedad del recurso.
 
-| Rol | Antes | Después |
-|---|---|---|
+| Rol        | Antes                                                         | Después                                                                                                                                                |
+| ---------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `viewer` | Leía, creaba, editaba y **eliminaba** cualquier ticket | Solo lee **sus propios** tickets. Un ticket ajeno responde `404`, para no confirmar que el id existe. Crear, editar o eliminar responde `403` |
-| `agent` | Igual que admin | Lee, crea y edita. **No** elimina (`403`) |
-| `admin` | — | Todo |
+| `agent`  | Igual que admin                                               | Lee, crea y edita. **No** elimina (`403`)                                                                                                       |
+| `admin`  | —                                                            | Todo                                                                                                                                                    |
 
-| Archivo | Cambio |
-|---|---|
-| `apps/api/src/middleware/auth.ts` | Nuevo middleware `requireRole(...roles)` que responde `403` |
-| `apps/api/src/routes/tickets.ts` | `requireRole` en `POST`, `PUT` y `DELETE`. Filtro por `created_by_id` para el viewer. Lista blanca de campos y valores (`status`, `priority`, `assigneeId`) contra mass assignment (`CWE-915`) |
-| `apps/api/src/routes/users.ts` | Crear usuarios y cambiar roles es solo para admin. El rol se valida contra lista blanca (antes cualquiera podía crearse una cuenta `admin`). `GET /api/users/:id` solo para admin o el propio usuario |
+| Archivo                             | Cambio                                                                                                                                                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/middleware/auth.ts` | Nuevo middleware `requireRole(...roles)` que responde `403`                                                                                                                                                  |
+| `apps/api/src/routes/tickets.ts`  | `requireRole` en `POST`, `PUT` y `DELETE`. Filtro por `created_by_id` para el viewer. Lista blanca de campos y valores (`status`, `priority`, `assigneeId`) contra mass assignment (`CWE-915`) |
+| `apps/api/src/routes/users.ts`    | Crear usuarios y cambiar roles es solo para admin. El rol se valida contra lista blanca (antes cualquiera podía crearse una cuenta `admin`). `GET /api/users/:id` solo para admin o el propio usuario       |
 
 **Resultado esperado:** `DELETE /api/tickets/1` con el token de `viewer` responde `403` y el ticket sigue existiendo. `GET /api/tickets/1` con ese token responde `404`.
 
@@ -141,16 +141,16 @@ const verified = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 // + el rol se lee de la tabla users, no del token
 ```
 
-| Archivo | Cambio |
-|---|---|
-| `apps/api/src/middleware/auth.ts` | `jwt.verify` solo con HS256 (rechaza `alg: none` y firmas inválidas con `401`). El rol se consulta en la base de datos en cada petición, así que un cambio de rol aplica de inmediato |
-| `apps/api/src/config.ts` *(nuevo)* | `JWT_SECRET` se toma del entorno. Si falta o tiene menos de 32 caracteres, se genera uno aleatorio en cada arranque. Se eliminó `secret123` (`CWE-798`) |
-| `apps/api/src/auth.ts` | El token se firma con HS256 y expira en 8 h |
-| `apps/api/src/routes/users.ts` | `GET /api/users` solo para admin y **sin `passwordHash`** |
-| `apps/api/src/hash.ts` | MD5 sin salt reemplazado por **PBKDF2-SHA512**, con salt aleatorio de 16 bytes, 210 000 iteraciones y `timingSafeEqual` (`CWE-327`, `CWE-759`) |
-| `apps/api/src/auth.ts` | Si el usuario no existe se verifica contra un hash de relleno, para que el tiempo de respuesta no revele qué usuarios existen |
-| `docker-compose.yml`, `.env.example` | Sin secreto JWT fijo |
-| `packages/shared/src/index.ts` | `passwordHash` eliminado del tipo `User` |
+| Archivo                                  | Cambio                                                                                                                                                                                         |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/middleware/auth.ts`      | `jwt.verify` solo con HS256 (rechaza `alg: none` y firmas inválidas con `401`). El rol se consulta en la base de datos en cada petición, así que un cambio de rol aplica de inmediato |
+| `apps/api/src/config.ts` *(nuevo)*   | `JWT_SECRET` se toma del entorno. Si falta o tiene menos de 32 caracteres, se genera uno aleatorio en cada arranque. Se eliminó `secret123` (`CWE-798`)                                 |
+| `apps/api/src/auth.ts`                 | El token se firma con HS256 y expira en 8 h                                                                                                                                                    |
+| `apps/api/src/routes/users.ts`         | `GET /api/users` solo para admin y **sin `passwordHash`**                                                                                                                            |
+| `apps/api/src/hash.ts`                 | MD5 sin salt reemplazado por **PBKDF2-SHA512**, con salt aleatorio de 16 bytes, 210 000 iteraciones y `timingSafeEqual` (`CWE-327`, `CWE-759`)                                     |
+| `apps/api/src/auth.ts`                 | Si el usuario no existe se verifica contra un hash de relleno, para que el tiempo de respuesta no revele qué usuarios existen                                                                 |
+| `docker-compose.yml`, `.env.example` | Sin secreto JWT fijo                                                                                                                                                                           |
+| `packages/shared/src/index.ts`         | `passwordHash` eliminado del tipo `User`                                                                                                                                                   |
 
 **Resultado esperado:** el request `PoC-04 JWT forjado` de Postman responde `401 Token inválido`. Con un token válido de `viewer` o `agent`, `GET /api/users` responde `403`.
 
@@ -176,19 +176,58 @@ const verified = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
 ### Prueba de regresión
 
-| PoC | Prueba (nombre y comando) | Falla antes de la corrección | Pasa después |
-|---|---|---|---|
-| PoC-01 | | | |
-| PoC-02 | | | |
-| PoC-03 | | | |
-| PoC-04 | | | |
+Cada corrección tiene su prueba automática en [`tests/regresion/`](../../tests/regresion/). Cada prueba repite el PoC del Hito 2 contra `http://localhost:8080` (WAF en `DetectionOnly`) y comprueba que la respuesta sea la segura. Solo usan módulos nativos de Node (`node:test` y `fetch`), así que no agregan dependencias.
+
+- **Comando para todas:** `pnpm test:regresion`, que equivale a `node --test --test-reporter=spec tests/regresion/`. Hay que correrlas contra una instancia recién levantada (`docker compose up -d`), porque el seed vuelve a crear el ticket 1 del admin.
+- **Cómo se obtuvo el "antes":** con `git worktree` se creó una copia del repositorio en el commit `0d6fada`, el último antes de las correcciones. Se levantó solo su API, detrás del mismo WAF, y se corrieron las mismas pruebas. Después se volvió a levantar `main` y se repitieron.
+- **Evidencia:**
+
+  - [`regresion-antes.txt`](evidencias_re-prueba/regresion-antes.txt): pasan 0 de 13 (2026-11-20 16:02:13).
+  - [`regresion-despues.txt`](evidencias_re-prueba/regresion-despues.txt): pasan 13 de 13 (16:02:51).
+
+  En la salida, los JWT están tapados.
+
+| PoC    | Prueba (nombre y comando)                                                                                                                                         | Falla antes de la corrección                                                                                                                                                                                                                                                                                                | Pasa después                                                                                                                                              |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PoC-01 | [`sql-injection.test.mjs`](../../tests/regresion/sql-injection.test.mjs) (3 pruebas)`node --test tests/regresion/sql-injection.test.mjs`                       | ❌ 3 de 3 fallan:• El login con `admin' OR '1'='1' --` responde `200` con el JWT de admin.• Una comilla suelta da `500` y la respuesta incluye el SQL y el error del motor.• La búsqueda `zzz' OR 1=1 --` devuelve 11 tickets: todos los que quedaban, porque la prueba del PoC-03 ya había borrado el ticket 1 | ✅ 3 de 3 pasan: `401`, `401` sin detalle interno y 0 tickets                                                                                          |
+| PoC-02 | [`xss.test.mjs`](../../tests/regresion/xss.test.mjs) (3 pruebas)`node --test tests/regresion/xss.test.mjs`                                                     | ❌ 3 de 3 fallan:• Hay 3 usos de `dangerouslySetInnerHTML` (`tickets/page.tsx:69` y `:99`, `tickets/[id]/page.tsx:93`).• La cookie `session` no tiene `HttpOnly`.• La API no envía `nosniff` ni CSP                                                                                                        | ✅ 3 de 3 pasan: no queda ningún uso, la cookie lleva `HttpOnly; SameSite=Strict` y llegan CSP, `nosniff` y `X-Frame-Options`, sin `X-Powered-By` |
+| PoC-03 | [`access-control.test.mjs`](../../tests/regresion/access-control.test.mjs), bloque *PoC-03* (3 pruebas)`node --test tests/regresion/access-control.test.mjs` | ❌ 3 de 3 fallan. El viewer:• lee el ticket 1 del admin (`200`);• lo elimina (`200 {"ok":true}`);• crea un ticket (`201`)                                                                                                                                                                                           | ✅ 3 de 3 pasan: `404`, `403` (y el ticket 1 sigue existiendo) y `403`                                                                               |
+| PoC-04 | [`access-control.test.mjs`](../../tests/regresion/access-control.test.mjs), bloque *PoC-04* (4 pruebas)`node --test tests/regresion/access-control.test.mjs` | ❌ 4 de 4 fallan:• El token con firma inválida da `200`.• El token con `alg: none` da `200`.• El viewer lista los usuarios (`200`).• El admin recibe el `passwordHash` de los 4 usuarios                                                                                                                      | ✅ 4 de 4 pasan: `401`, `401`, `403` y la lista sin hashes                                                                                           |
+
+#### Uso de IA en las pruebas de regresión
+
+| Campo                    | Detalle                                                                                                                                                   |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Herramienta**    | Claude Code (modelo Claude Opus 5.5, Anthropic), extensión de VS Code                                                                                    |
+| **Quién la usó** | Maria Villafuerte (Equipo Rojo)                                                                                                                           |
+| **Fecha**          | 2026-11-20                                                                                                                                                |
+| **Qué generó**   | Los 4 archivos de `tests/regresion/` (`helpers.mjs` y las 3 pruebas), el script `test:regresion` de `package.json` y la ejecución antes/después |
+
+```text
+Prompt 1:
+como hacemos la prueba de regresión?
+
+Prompt 2 (con una captura de la sección "Pendiente del Equipo Rojo" de este README):
+puede hacer esto antes
+```
+
+**Cómo trabajó la IA:**
+
+1. Propuso usar `node:test` y `fetch` para no agregar dependencias.
+2. Leyó el código vulnerable de `0d6fada` para que cada prueba falle por el motivo correcto y no por otro error.
+3. Escribió 13 pruebas en 3 archivos.
+4. Las corrió contra `main` (13 de 13) y contra `0d6fada` (0 de 13).
+
+**Revisión del Equipo Rojo:** *(completar: quién revisó las pruebas y si se cambió algo)*
 
 ### Auditoría del código generado
 
-- [ ] SAST del pipeline corrido sobre este código, sin excluirlo. Resultado:
-- [ ] Revisión manual con la checklist de la Lectura 10. Hallazgos:
-- [ ] Cada dependencia nueva existe en el repositorio oficial (no es slopsquatting). *Nota: estos commits no agregan dependencias a `package.json` ni a `pnpm-lock.yaml`; verificar.*
-- [ ] No se introdujeron secretos. *Nota: se eliminó `secret123`; verificar que no haya otros.*
+- [X] **Cada dependencia nueva existe en el repositorio oficial (no es slopsquatting).** No aplica, porque no hay dependencias nuevas: `git diff --stat 0d6fada 4444c6d -- '*package.json' pnpm-lock.yaml` no muestra cambios. Las correcciones usan el módulo nativo `crypto` y las librerías que ya estaban. Las pruebas de regresión tampoco agregan paquetes: el único cambio en `package.json` es el script `test:regresion`.
+- [X] **No se introdujeron secretos.**
+  - Los commits de corrección no agregan ningún secreto: `JWT_SECRET` se lee del entorno (`apps/api/src/config.ts`) y en `.env.example` queda vacío.
+  - `secret123` ya solo aparece en un comentario de `config.ts` que explica por qué se quitó.
+  - Los únicos `.env` versionados son `.env.example` y `waf-siem/.env.example`, y no tienen valores secretos.
+  - Las contraseñas de `seed.ts` (`Admin123!`, etc.) son cuentas de prueba locales que ya existían antes del Hito 4.
 
 ### Re-prueba del Equipo Rojo
 
@@ -205,24 +244,24 @@ Antes de la re-prueba, el WAF se dejó en **`DetectionOnly`**: solo registra y n
 
 Se repitieron en **Burp Suite Repeater** (Community v2026.10.1) las mismas cuatro peticiones del [Hito 2](../hito-2/README.md), contra `http://localhost:8080`. Las horas vienen de la cabecera `Date` de cada respuesta (hora local = GMT-6). La columna **Commit** indica qué commit corrige cada PoC (detalle en las secciones de corrección de arriba).
 
-| PoC | Modo del WAF | Fecha y hora | Commit de la corrección | Resultado esperado | Resultado obtenido | Captura |
-|---|---|---|---|---|---|---|
-| PoC-01 SQLi login | DetectionOnly | 2026-11-20 15:29:12 (local) / 21:29:12 GMT | [`d10aee3`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/d10aee3) (consulta parametrizada) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (PBKDF2) | `401` | ✅ `401 Unauthorized` · `{"error":"Credenciales inválidas"}` | [burp-poc01.png](evidencias_re-prueba/burp-poc01.png) · [Postman](evidencias_re-prueba/postman-poc01.png) |
-| PoC-02 XSS búsqueda y descripción | DetectionOnly | 2026-11-20 15:34:24 (local) / 21:34:24 GMT | [`d10aee3`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/d10aee3) (escape en React) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (CSP y cabeceras) | Se muestra como texto, no ejecuta | ✅ API: `200` con `query` reflejado **dentro de JSON** (esperado: la API no genera HTML). Ahora responde con `Content-Security-Policy`, `X-Content-Type-Options: nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. La cookie `session` sale con `HttpOnly; SameSite=Strict`.<br>⏳ Falta la captura del navegador que muestre el texto sin ejecutarse (búsqueda y descripción) | [burp-poc02.png](evidencias_re-prueba/burp-poc02.png) · [login con cookie](evidencias_re-prueba/burp-poc02-login-cookie.png) |
-| PoC-03 IDOR (GET como viewer) | DetectionOnly | — | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) | `404` | ⏳ No se repitió en Burp. En el Hito 2 tampoco hubo captura de Burp de este `GET`, solo del `DELETE` | — |
-| PoC-03 DELETE como viewer | DetectionOnly | 2026-11-20 15:36:54 (local) / 21:36:54 GMT | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) (`requireRole`) | `403`, el ticket sigue existiendo | ✅ `403 Forbidden` · `{"error":"No autorizado para esta acción"}` con un token válido de `viewer` (`sub: 4`). `requireRole('admin')` corta antes de ejecutar el `DELETE`. No se capturó un `GET` posterior del ticket | [burp-poc03.png](evidencias_re-prueba/burp-poc03.png) · [login del viewer](evidencias_re-prueba/burp-poc03-login-viewer.png) · [Postman](evidencias_re-prueba/postman-poc03.png) (con el `{{token}}` de la colección) |
-| PoC-04 JWT forjado | DetectionOnly | 2026-11-20 15:38:48 (local) / 21:38:48 GMT | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) (`jwt.verify`, `/api/users` sin hashes) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (PBKDF2) | `401` | ✅ `401 Unauthorized` · `{"error":"Token inválido"}` | [burp-poc04.png](evidencias_re-prueba/burp-poc04.png) |
+| PoC                                 | Modo del WAF  | Fecha y hora                               | Commit de la corrección                                                                                                                                                                                                                      | Resultado esperado                  | Resultado obtenido                                                                                                                                                                                                                                                                                                                                                                                       | Captura                                                                                                                                                                                                                 |
+| ----------------------------------- | ------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PoC-01 SQLi login                   | DetectionOnly | 2026-11-20 15:29:12 (local) / 21:29:12 GMT | [`d10aee3`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/d10aee3) (consulta parametrizada) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (PBKDF2)                    | `401`                             | ✅ `401 Unauthorized` · `{"error":"Credenciales inválidas"}`                                                                                                                                                                                                                                                                                                                                       | [burp-poc01.png](evidencias_re-prueba/burp-poc01.png) · [Postman](evidencias_re-prueba/postman-poc01.png)                                                                                                                |
+| PoC-02 XSS búsqueda y descripción | DetectionOnly | 2026-11-20 15:34:24 (local) / 21:34:24 GMT | [`d10aee3`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/d10aee3) (escape en React) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (CSP y cabeceras)                  | Se muestra como texto, no ejecuta   | ✅ API: `200` con `query` reflejado **dentro de JSON** (esperado: la API no genera HTML). Ahora responde con `Content-Security-Policy`, `X-Content-Type-Options: nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. La cookie `session` sale con `HttpOnly; SameSite=Strict`.⏳ Falta la captura del navegador que muestre el texto sin ejecutarse (búsqueda y descripción) | [burp-poc02.png](evidencias_re-prueba/burp-poc02.png) · [login con cookie](evidencias_re-prueba/burp-poc02-login-cookie.png)                                                                                             |
+| PoC-03 IDOR (GET como viewer)       | DetectionOnly | —                                         | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244)                                                                                                                                                    | `404`                             | ⏳ No se repitió en Burp. En el Hito 2 tampoco hubo captura de Burp de este `GET`, solo del `DELETE`                                                                                                                                                                                                                                                                                                | —                                                                                                                                                                                                                      |
+| PoC-03 DELETE como viewer           | DetectionOnly | 2026-11-20 15:36:54 (local) / 21:36:54 GMT | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) (`requireRole`)                                                                                                                                  | `403`, el ticket sigue existiendo | ✅ `403 Forbidden` · `{"error":"No autorizado para esta acción"}` con un token válido de `viewer` (`sub: 4`). `requireRole('admin')` corta antes de ejecutar el `DELETE`. No se capturó un `GET` posterior del ticket                                                                                                                                                                  | [burp-poc03.png](evidencias_re-prueba/burp-poc03.png) · [login del viewer](evidencias_re-prueba/burp-poc03-login-viewer.png) · [Postman](evidencias_re-prueba/postman-poc03.png) (con el `{{token}}` de la colección) |
+| PoC-04 JWT forjado                  | DetectionOnly | 2026-11-20 15:38:48 (local) / 21:38:48 GMT | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) (`jwt.verify`, `/api/users` sin hashes) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (PBKDF2) | `401`                             | ✅ `401 Unauthorized` · `{"error":"Token inválido"}`                                                                                                                                                                                                                                                                                                                                               | [burp-poc04.png](evidencias_re-prueba/burp-poc04.png)                                                                                                                                                                    |
 
 #### Registro de ataques de la re-prueba
 
 Mismo formato que el registro del [Hito 2](../hito-2/README.md): columnas `Fecha y hora | Hallazgo | Herramienta | Destino | Resultado`, una herramienta por fila y una fila por envío. Los logins con las cuentas semilla (`jperez` a las 15:30:50 y `viewer` a las 15:35:39, hora local) solo sirvieron para obtener tokens y no se registran como ataques.
 
-| Fecha y hora | Hallazgo | Herramienta | Destino (`localhost:8080` + ruta) | Resultado (código HTTP y qué ocurrió) |
-|---|---|---|---|---|
-| 2026-11-20 15:29:12 (local) / 21:29:12 GMT | Re-prueba PoC-01 SQLi en login (`admin' OR '1'='1' --`) | Burp Repeater | `POST http://localhost:8080/api/auth/login` | `401` `Credenciales inválidas`: el bypass ya no funciona. Captura `burp-poc01.png` |
-| 2026-11-20 15:34:24 (local) / 21:34:24 GMT | Re-prueba PoC-02 XSS reflejado en búsqueda (`<script>alert(1)</script>`) | Burp Repeater | `GET http://localhost:8080/api/tickets?q=` | `200`: `query` reflejado en JSON, ahora con CSP, `nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. Captura `burp-poc02.png` |
-| 2026-11-20 15:36:54 (local) / 21:36:54 GMT | Re-prueba PoC-03 DELETE con token `viewer` sobre ticket id 1 | Burp Repeater | `DELETE http://localhost:8080/api/tickets/1` | `403` `No autorizado para esta acción`: el viewer ya no puede eliminar. Captura `burp-poc03.png` |
-| 2026-11-20 15:38:48 (local) / 21:38:48 GMT | Re-prueba PoC-04 JWT con firma inválida (`firma_invalida`) | Burp Repeater | `GET http://localhost:8080/api/users` | `401` `Token inválido`: ya no lista usuarios ni hashes. Captura `burp-poc04.png` |
+| Fecha y hora                               | Hallazgo                                                                    | Herramienta   | Destino (`localhost:8080` + ruta)            | Resultado (código HTTP y qué ocurrió)                                                                                                       |
+| ------------------------------------------ | --------------------------------------------------------------------------- | ------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-20 15:29:12 (local) / 21:29:12 GMT | Re-prueba PoC-01 SQLi en login (`admin' OR '1'='1' --`)                   | Burp Repeater | `POST http://localhost:8080/api/auth/login`  | `401` `Credenciales inválidas`: el bypass ya no funciona. Captura `burp-poc01.png`                                                      |
+| 2026-11-20 15:34:24 (local) / 21:34:24 GMT | Re-prueba PoC-02 XSS reflejado en búsqueda (`<script>alert(1)</script>`) | Burp Repeater | `GET http://localhost:8080/api/tickets?q=`   | `200`: `query` reflejado en JSON, ahora con CSP, `nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. Captura `burp-poc02.png` |
+| 2026-11-20 15:36:54 (local) / 21:36:54 GMT | Re-prueba PoC-03 DELETE con token `viewer` sobre ticket id 1              | Burp Repeater | `DELETE http://localhost:8080/api/tickets/1` | `403` `No autorizado para esta acción`: el viewer ya no puede eliminar. Captura `burp-poc03.png`                                        |
+| 2026-11-20 15:38:48 (local) / 21:38:48 GMT | Re-prueba PoC-04 JWT con firma inválida (`firma_invalida`)               | Burp Repeater | `GET http://localhost:8080/api/users`        | `401` `Token inválido`: ya no lista usuarios ni hashes. Captura `burp-poc04.png`                                                        |
 
 > Las repeticiones en Postman (`postman-poc01.png`, `postman-poc03.png` y `07-reprueba-detectiononly.png`) no muestran la cabecera `Date`. Se agregan a este registro cuando se anote su hora.
 
@@ -234,22 +273,22 @@ El método, la ruta y el payload de cada petición son los mismos que en el Hito
 - En el PoC-01 se quitó un `Authorization: Bearer` de admin que había quedado en la petición del Hito 2. El login no lee esa cabecera, pero así la prueba queda limpia.
 - Los tokens de `jperez` y `viewer` son nuevos. Los del Hito 2 ya no sirven, porque cambiaron el secreto y la verificación.
 
-| PoC | Petición (igual en ambos hitos) | Hito 2 · 2026-11-13 (antes) | Hito 4 · 2026-11-20 (después) |
-|---|---|---|---|
-| **PoC-01** SQLi | `POST /api/auth/login` · `{"username":"admin' OR '1'='1' --","password":"x"}` | ❌ `200 OK`: devolvió un JWT de `admin` (bypass del login) | ✅ `401` `Credenciales inválidas` |
-| **PoC-02** XSS | `GET /api/tickets?q=<script>alert(1)</script>` | ❌ `200`: `query` reflejado, y la web lo pintaba con `dangerouslySetInnerHTML`. Sin CSP y con `X-Powered-By: Express` | ✅ `200`: `query` reflejado en JSON, y la web lo muestra como texto. Llegan CSP, `nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By` |
-| **PoC-03** Control de acceso | `DELETE /api/tickets/1` con token de `viewer` | ❌ `200` `{"ok":true}`: el viewer borró el ticket | ✅ `403` `No autorizado para esta acción` |
-| **PoC-04** JWT forjado | `GET /api/users` con firma `firma_invalida` | ❌ `200`: listó todos los usuarios con `passwordHash` en MD5 | ✅ `401` `Token inválido` |
+| PoC                                | Petición (igual en ambos hitos)                                                   | Hito 2 · 2026-11-13 (antes)                                                                                                  | Hito 4 · 2026-11-20 (después)                                                                                                                    |
+| ---------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PoC-01** SQLi              | `POST /api/auth/login` · `{"username":"admin' OR '1'='1' --","password":"x"}` | ❌ `200 OK`: devolvió un JWT de `admin` (bypass del login)                                                               | ✅ `401` `Credenciales inválidas`                                                                                                             |
+| **PoC-02** XSS               | `GET /api/tickets?q=<script>alert(1)</script>`                                   | ❌ `200`: `query` reflejado, y la web lo pintaba con `dangerouslySetInnerHTML`. Sin CSP y con `X-Powered-By: Express` | ✅ `200`: `query` reflejado en JSON, y la web lo muestra como texto. Llegan CSP, `nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By` |
+| **PoC-03** Control de acceso | `DELETE /api/tickets/1` con token de `viewer`                                  | ❌ `200` `{"ok":true}`: el viewer borró el ticket                                                                        | ✅ `403` `No autorizado para esta acción`                                                                                                     |
+| **PoC-04** JWT forjado       | `GET /api/users` con firma `firma_invalida`                                    | ❌ `200`: listó todos los usuarios con `passwordHash` en MD5                                                             | ✅ `401` `Token inválido`                                                                                                                     |
 
 **Cabeceras de respuesta:**
 
-| Cabecera | Hito 2 | Hito 4 |
-|---|---|---|
-| `X-Powered-By` | `Express` | Ausente |
-| `Content-Security-Policy` | Ausente | `default-src 'none'; frame-ancestors 'none'` |
-| `X-Content-Type-Options` | Ausente | `nosniff` |
-| `X-Frame-Options` | Ausente | `DENY` |
-| `Set-Cookie: session` | `Path=/` (legible desde JavaScript) | `Path=/; HttpOnly; SameSite=Strict` |
+| Cabecera                    | Hito 2                                | Hito 4                                         |
+| --------------------------- | ------------------------------------- | ---------------------------------------------- |
+| `X-Powered-By`            | `Express`                           | Ausente                                        |
+| `Content-Security-Policy` | Ausente                               | `default-src 'none'; frame-ancestors 'none'` |
+| `X-Content-Type-Options`  | Ausente                               | `nosniff`                                    |
+| `X-Frame-Options`         | Ausente                               | `DENY`                                       |
+| `Set-Cookie: session`     | `Path=/` (legible desde JavaScript) | `Path=/; HttpOnly; SameSite=Strict`          |
 
 > **Las respuestas vienen de la API, no del WAF.** Todas pasan por el WAF (`Server: nginx`), pero el cuerpo es el JSON de la API. Si el WAF hubiera bloqueado, respondería un `403` con una página HTML de nginx.
 >
@@ -257,30 +296,30 @@ El método, la ruta y el payload de cada petición son los mismos que en el Hito
 
 #### PoC-01 · SQLi en el login
 
-| Hito 2 (antes) | Hito 4 (después) |
-|---|---|
+| Hito 2 (antes)                                                              | Hito 4 (después)                                                                    |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | ![PoC-01 Hito 2 — 200 con JWT de admin](../assets/img/red/burp-poc-01.png) | ![PoC-01 Hito 4 — 401 Credenciales inválidas](evidencias_re-prueba/burp-poc01.png) |
 
 #### PoC-02 · XSS reflejado en la búsqueda
 
-| Hito 2 (antes) | Hito 4 (después) |
-|---|---|
+| Hito 2 (antes)                                                                                    | Hito 4 (después)                                                                                         |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | ![PoC-02 Hito 2 — query reflejado sin cabeceras de seguridad](../assets/img/red/burp-poc-02.png) | ![PoC-02 Hito 4 — query en JSON con CSP, nosniff y X-Frame-Options](evidencias_re-prueba/burp-poc02.png) |
 
 Cookie de sesión con `HttpOnly; SameSite=Strict` en el login de `jperez`: [burp-poc02-login-cookie.png](evidencias_re-prueba/burp-poc02-login-cookie.png).
 
 #### PoC-03 · DELETE con token de viewer
 
-| Hito 2 (antes) | Hito 4 (después) |
-|---|---|
+| Hito 2 (antes)                                                     | Hito 4 (después)                                                          |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | ![PoC-03 Hito 2 — 200 ok:true](../assets/img/red/burp-poc-03.png) | ![PoC-03 Hito 4 — 403 No autorizado](evidencias_re-prueba/burp-poc03.png) |
 
 Login del `viewer` que emitió el token usado: [burp-poc03-login-viewer.png](evidencias_re-prueba/burp-poc03-login-viewer.png).
 
 #### PoC-04 · JWT con firma inválida
 
-| Hito 2 (antes) | Hito 4 (después) |
-|---|---|
+| Hito 2 (antes)                                                            | Hito 4 (después)                                                            |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | ![PoC-04 Hito 2 — 200 con hashes MD5](../assets/img/red/burp-poc-04.png) | ![PoC-04 Hito 4 — 401 Token inválido](evidencias_re-prueba/burp-poc04.png) |
 
-- **¿El pipeline pasa?** (enlace a la corrida de GitHub Actions):
+- **¿El pipeline pasa?** Sí. La [corrida 44823883025](https://github.com/andreetoledo-org/secure-crm-proyecto-final/actions/runs/44823883025) sobre `4444c6d` (que incluye las tres correcciones) terminó en `success` en sus 4 jobs: SAST, SCA, SBOM y DAST. Lo mismo pasó en `d10aee3`, `9015244` y `865d704`. El pipeline sigue en `SECURITY_GATE: "reporte"`, así que este resultado confirma que los controles corren, no que no tengan hallazgos (ver la auditoría SAST arriba).
