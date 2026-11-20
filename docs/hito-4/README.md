@@ -192,12 +192,71 @@ const verified = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
 ### Re-prueba del Equipo Rojo
 
+Se repitieron en **Burp Suite Repeater** (Community v2026.10.1) las mismas cuatro peticiones del [Hito 2](../hito-2/README.md), contra `http://localhost:8080` y con el WAF en **`DetectionOnly`**. El modo se confirmó en el contenedor: `docker exec proyecto-final-waf-1 printenv MODSEC_RULE_ENGINE` devolvió `DetectionOnly`. Las horas vienen de la cabecera `Date` de cada respuesta (hora local = GMT-6).
+
 | PoC | Modo del WAF | Fecha y hora | Resultado esperado | Resultado obtenido | Captura |
 |---|---|---|---|---|---|
-| PoC-01 SQLi login | DetectionOnly | | `401` | | |
-| PoC-02 XSS búsqueda y descripción | DetectionOnly | | Se muestra como texto, no ejecuta | | |
-| PoC-03 IDOR (GET como viewer) | DetectionOnly | | `404` | | |
-| PoC-03 DELETE como viewer | DetectionOnly | | `403`, el ticket sigue existiendo | | |
-| PoC-04 JWT forjado | DetectionOnly | | `401` | | |
+| PoC-01 SQLi login | DetectionOnly | 2026-11-20 15:29:12 (local) / 21:29:12 GMT | `401` | ✅ `401 Unauthorized` · `{"error":"Credenciales inválidas"}` | [burp-poc01.png](evidencias_re-prueba/burp-poc01.png) |
+| PoC-02 XSS búsqueda y descripción | DetectionOnly | 2026-11-20 15:34:24 (local) / 21:34:24 GMT | Se muestra como texto, no ejecuta | ✅ API: `200` con `query` reflejado **dentro de JSON** (esperado: la API no genera HTML). Ahora responde con `Content-Security-Policy`, `X-Content-Type-Options: nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. La cookie `session` sale con `HttpOnly; SameSite=Strict`.<br>⏳ Falta la captura del navegador que muestre el texto sin ejecutarse (búsqueda y descripción) | [burp-poc02.png](evidencias_re-prueba/burp-poc02.png) · [login con cookie](evidencias_re-prueba/burp-poc02-login-cookie.png) |
+| PoC-03 IDOR (GET como viewer) | DetectionOnly | — | `404` | ⏳ No se repitió en Burp. En el Hito 2 tampoco hubo captura de Burp de este `GET`, solo del `DELETE` | — |
+| PoC-03 DELETE como viewer | DetectionOnly | 2026-11-20 15:36:54 (local) / 21:36:54 GMT | `403`, el ticket sigue existiendo | ✅ `403 Forbidden` · `{"error":"No autorizado para esta acción"}` con un token válido de `viewer` (`sub: 4`). `requireRole('admin')` corta antes de ejecutar el `DELETE`. No se capturó un `GET` posterior del ticket | [burp-poc03.png](evidencias_re-prueba/burp-poc03.png) · [login del viewer](evidencias_re-prueba/burp-poc03-login-viewer.png) |
+| PoC-04 JWT forjado | DetectionOnly | 2026-11-20 15:38:48 (local) / 21:38:48 GMT | `401` | ✅ `401 Unauthorized` · `{"error":"Token inválido"}` | [burp-poc04.png](evidencias_re-prueba/burp-poc04.png) |
+
+### Comparación Hito 2 vs Hito 4 (Burp Repeater)
+
+El método, la ruta y el payload de cada petición son los mismos que en el Hito 2. Las diferencias en la petición son tres:
+
+- En el Hito 4 se enviaron solo las cabeceras necesarias. Las del Hito 2 se habían copiado del navegador (`sec-ch-ua`, `Origin`, `Referer`…).
+- En el PoC-01 se quitó un `Authorization: Bearer` de admin que había quedado en la petición del Hito 2. El login no lee esa cabecera, pero así la prueba queda limpia.
+- Los tokens de `jperez` y `viewer` son nuevos. Los del Hito 2 ya no sirven, porque cambiaron el secreto y la verificación.
+
+| PoC | Petición (igual en ambos hitos) | Hito 2 · 2026-11-13 (antes) | Hito 4 · 2026-11-20 (después) |
+|---|---|---|---|
+| **PoC-01** SQLi | `POST /api/auth/login` · `{"username":"admin' OR '1'='1' --","password":"x"}` | ❌ `200 OK`: devolvió un JWT de `admin` (bypass del login) | ✅ `401` `Credenciales inválidas` |
+| **PoC-02** XSS | `GET /api/tickets?q=<script>alert(1)</script>` | ❌ `200`: `query` reflejado, y la web lo pintaba con `dangerouslySetInnerHTML`. Sin CSP y con `X-Powered-By: Express` | ✅ `200`: `query` reflejado en JSON, y la web lo muestra como texto. Llegan CSP, `nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By` |
+| **PoC-03** Control de acceso | `DELETE /api/tickets/1` con token de `viewer` | ❌ `200` `{"ok":true}`: el viewer borró el ticket | ✅ `403` `No autorizado para esta acción` |
+| **PoC-04** JWT forjado | `GET /api/users` con firma `firma_invalida` | ❌ `200`: listó todos los usuarios con `passwordHash` en MD5 | ✅ `401` `Token inválido` |
+
+**Cabeceras de respuesta:**
+
+| Cabecera | Hito 2 | Hito 4 |
+|---|---|---|
+| `X-Powered-By` | `Express` | Ausente |
+| `Content-Security-Policy` | Ausente | `default-src 'none'; frame-ancestors 'none'` |
+| `X-Content-Type-Options` | Ausente | `nosniff` |
+| `X-Frame-Options` | Ausente | `DENY` |
+| `Set-Cookie: session` | `Path=/` (legible desde JavaScript) | `Path=/; HttpOnly; SameSite=Strict` |
+
+> **Las respuestas vienen de la API, no del WAF.** Todas pasan por el WAF (`Server: nginx`), pero el cuerpo es el JSON de la API. Si el WAF hubiera bloqueado, respondería un `403` con una página HTML de nginx.
+>
+> **Sobre el `403` del PoC-03:** en esa respuesta aparecen `Content-Type: text/html` y `Access-Control-Allow-Origin: *`. Esas cabeceras las agrega la imagen `owasp/modsecurity-crs:nginx` a **toda** respuesta `403` (`/etc/nginx/includes/cors.conf`: `more_set_headers -s 403 ...`). El cuerpo (`{"error":"No autorizado para esta acción"}`, 43 bytes, con `ETag` de Express) es el de `requireRole` en la API.
+
+#### PoC-01 · SQLi en el login
+
+| Hito 2 (antes) | Hito 4 (después) |
+|---|---|
+| ![PoC-01 Hito 2 — 200 con JWT de admin](../assets/img/red/burp-poc-01.png) | ![PoC-01 Hito 4 — 401 Credenciales inválidas](evidencias_re-prueba/burp-poc01.png) |
+
+#### PoC-02 · XSS reflejado en la búsqueda
+
+| Hito 2 (antes) | Hito 4 (después) |
+|---|---|
+| ![PoC-02 Hito 2 — query reflejado sin cabeceras de seguridad](../assets/img/red/burp-poc-02.png) | ![PoC-02 Hito 4 — query en JSON con CSP, nosniff y X-Frame-Options](evidencias_re-prueba/burp-poc02.png) |
+
+Cookie de sesión con `HttpOnly; SameSite=Strict` en el login de `jperez`: [burp-poc02-login-cookie.png](evidencias_re-prueba/burp-poc02-login-cookie.png).
+
+#### PoC-03 · DELETE con token de viewer
+
+| Hito 2 (antes) | Hito 4 (después) |
+|---|---|
+| ![PoC-03 Hito 2 — 200 ok:true](../assets/img/red/burp-poc-03.png) | ![PoC-03 Hito 4 — 403 No autorizado](evidencias_re-prueba/burp-poc03.png) |
+
+Login del `viewer` que emitió el token usado: [burp-poc03-login-viewer.png](evidencias_re-prueba/burp-poc03-login-viewer.png).
+
+#### PoC-04 · JWT con firma inválida
+
+| Hito 2 (antes) | Hito 4 (después) |
+|---|---|
+| ![PoC-04 Hito 2 — 200 con hashes MD5](../assets/img/red/burp-poc-04.png) | ![PoC-04 Hito 4 — 401 Token inválido](evidencias_re-prueba/burp-poc04.png) |
 
 - **¿El pipeline pasa?** (enlace a la corrida de GitHub Actions):
