@@ -192,15 +192,39 @@ const verified = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
 ### Re-prueba del Equipo Rojo
 
-Se repitieron en **Burp Suite Repeater** (Community v2026.10.1) las mismas cuatro peticiones del [Hito 2](../hito-2/README.md), contra `http://localhost:8080` y con el WAF en **`DetectionOnly`**. El modo se confirmó en el contenedor: `docker exec proyecto-final-waf-1 printenv MODSEC_RULE_ENGINE` devolvió `DetectionOnly`. Las horas vienen de la cabecera `Date` de cada respuesta (hora local = GMT-6).
+#### Confirmar el modo
 
-| PoC | Modo del WAF | Fecha y hora | Resultado esperado | Resultado obtenido | Captura |
-|---|---|---|---|---|---|
-| PoC-01 SQLi login | DetectionOnly | 2026-11-20 15:29:12 (local) / 21:29:12 GMT | `401` | ✅ `401 Unauthorized` · `{"error":"Credenciales inválidas"}` | [burp-poc01.png](evidencias_re-prueba/burp-poc01.png) |
-| PoC-02 XSS búsqueda y descripción | DetectionOnly | 2026-11-20 15:34:24 (local) / 21:34:24 GMT | Se muestra como texto, no ejecuta | ✅ API: `200` con `query` reflejado **dentro de JSON** (esperado: la API no genera HTML). Ahora responde con `Content-Security-Policy`, `X-Content-Type-Options: nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. La cookie `session` sale con `HttpOnly; SameSite=Strict`.<br>⏳ Falta la captura del navegador que muestre el texto sin ejecutarse (búsqueda y descripción) | [burp-poc02.png](evidencias_re-prueba/burp-poc02.png) · [login con cookie](evidencias_re-prueba/burp-poc02-login-cookie.png) |
-| PoC-03 IDOR (GET como viewer) | DetectionOnly | — | `404` | ⏳ No se repitió en Burp. En el Hito 2 tampoco hubo captura de Burp de este `GET`, solo del `DELETE` | — |
-| PoC-03 DELETE como viewer | DetectionOnly | 2026-11-20 15:36:54 (local) / 21:36:54 GMT | `403`, el ticket sigue existiendo | ✅ `403 Forbidden` · `{"error":"No autorizado para esta acción"}` con un token válido de `viewer` (`sub: 4`). `requireRole('admin')` corta antes de ejecutar el `DELETE`. No se capturó un `GET` posterior del ticket | [burp-poc03.png](evidencias_re-prueba/burp-poc03.png) · [login del viewer](evidencias_re-prueba/burp-poc03-login-viewer.png) |
-| PoC-04 JWT forjado | DetectionOnly | 2026-11-20 15:38:48 (local) / 21:38:48 GMT | `401` | ✅ `401 Unauthorized` · `{"error":"Token inválido"}` | [burp-poc04.png](evidencias_re-prueba/burp-poc04.png) |
+Antes de la re-prueba, el WAF se dejó en **`DetectionOnly`**: solo registra y no bloquea. Así, si el ataque falla, falla por la corrección en el código. Hay dos comprobaciones:
+
+- **En el archivo:** `waf-siem/.env` tiene `MODSEC_RULE_ENGINE=DetectionOnly`. La captura muestra además el PoC-01 repetido en Postman, que responde `401 Credenciales inválidas`.
+- **En el contenedor en ejecución:** `docker exec proyecto-final-waf-1 printenv MODSEC_RULE_ENGINE` devolvió `DetectionOnly`.
+
+![Re-prueba en DetectionOnly — .env del WAF y PoC-01 en Postman con 401](../assets/img/red/07-reprueba-detectiononly.png)
+
+#### Correr el mismo PoC
+
+Se repitieron en **Burp Suite Repeater** (Community v2026.10.1) las mismas cuatro peticiones del [Hito 2](../hito-2/README.md), contra `http://localhost:8080`. Las horas vienen de la cabecera `Date` de cada respuesta (hora local = GMT-6). La columna **Commit** indica qué commit corrige cada PoC (detalle en las secciones de corrección de arriba).
+
+| PoC | Modo del WAF | Fecha y hora | Commit de la corrección | Resultado esperado | Resultado obtenido | Captura |
+|---|---|---|---|---|---|---|
+| PoC-01 SQLi login | DetectionOnly | 2026-11-20 15:29:12 (local) / 21:29:12 GMT | [`d10aee3`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/d10aee3) (consulta parametrizada) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (PBKDF2) | `401` | ✅ `401 Unauthorized` · `{"error":"Credenciales inválidas"}` | [burp-poc01.png](evidencias_re-prueba/burp-poc01.png) · [Postman](evidencias_re-prueba/postman-poc01.png) |
+| PoC-02 XSS búsqueda y descripción | DetectionOnly | 2026-11-20 15:34:24 (local) / 21:34:24 GMT | [`d10aee3`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/d10aee3) (escape en React) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (CSP y cabeceras) | Se muestra como texto, no ejecuta | ✅ API: `200` con `query` reflejado **dentro de JSON** (esperado: la API no genera HTML). Ahora responde con `Content-Security-Policy`, `X-Content-Type-Options: nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. La cookie `session` sale con `HttpOnly; SameSite=Strict`.<br>⏳ Falta la captura del navegador que muestre el texto sin ejecutarse (búsqueda y descripción) | [burp-poc02.png](evidencias_re-prueba/burp-poc02.png) · [login con cookie](evidencias_re-prueba/burp-poc02-login-cookie.png) |
+| PoC-03 IDOR (GET como viewer) | DetectionOnly | — | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) | `404` | ⏳ No se repitió en Burp. En el Hito 2 tampoco hubo captura de Burp de este `GET`, solo del `DELETE` | — |
+| PoC-03 DELETE como viewer | DetectionOnly | 2026-11-20 15:36:54 (local) / 21:36:54 GMT | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) (`requireRole`) | `403`, el ticket sigue existiendo | ✅ `403 Forbidden` · `{"error":"No autorizado para esta acción"}` con un token válido de `viewer` (`sub: 4`). `requireRole('admin')` corta antes de ejecutar el `DELETE`. No se capturó un `GET` posterior del ticket | [burp-poc03.png](evidencias_re-prueba/burp-poc03.png) · [login del viewer](evidencias_re-prueba/burp-poc03-login-viewer.png) · [Postman](evidencias_re-prueba/postman-poc03.png) (con el `{{token}}` de la colección) |
+| PoC-04 JWT forjado | DetectionOnly | 2026-11-20 15:38:48 (local) / 21:38:48 GMT | [`9015244`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/9015244) (`jwt.verify`, `/api/users` sin hashes) · [`865d704`](https://github.com/andreetoledo-org/secure-crm-proyecto-final/commit/865d704) (PBKDF2) | `401` | ✅ `401 Unauthorized` · `{"error":"Token inválido"}` | [burp-poc04.png](evidencias_re-prueba/burp-poc04.png) |
+
+#### Registro de ataques de la re-prueba
+
+Mismo formato que el registro del [Hito 2](../hito-2/README.md): columnas `Fecha y hora | Hallazgo | Herramienta | Destino | Resultado`, una herramienta por fila y una fila por envío. Los logins con las cuentas semilla (`jperez` a las 15:30:50 y `viewer` a las 15:35:39, hora local) solo sirvieron para obtener tokens y no se registran como ataques.
+
+| Fecha y hora | Hallazgo | Herramienta | Destino (`localhost:8080` + ruta) | Resultado (código HTTP y qué ocurrió) |
+|---|---|---|---|---|
+| 2026-11-20 15:29:12 (local) / 21:29:12 GMT | Re-prueba PoC-01 SQLi en login (`admin' OR '1'='1' --`) | Burp Repeater | `POST http://localhost:8080/api/auth/login` | `401` `Credenciales inválidas`: el bypass ya no funciona. Captura `burp-poc01.png` |
+| 2026-11-20 15:34:24 (local) / 21:34:24 GMT | Re-prueba PoC-02 XSS reflejado en búsqueda (`<script>alert(1)</script>`) | Burp Repeater | `GET http://localhost:8080/api/tickets?q=` | `200`: `query` reflejado en JSON, ahora con CSP, `nosniff` y `X-Frame-Options: DENY`, sin `X-Powered-By`. Captura `burp-poc02.png` |
+| 2026-11-20 15:36:54 (local) / 21:36:54 GMT | Re-prueba PoC-03 DELETE con token `viewer` sobre ticket id 1 | Burp Repeater | `DELETE http://localhost:8080/api/tickets/1` | `403` `No autorizado para esta acción`: el viewer ya no puede eliminar. Captura `burp-poc03.png` |
+| 2026-11-20 15:38:48 (local) / 21:38:48 GMT | Re-prueba PoC-04 JWT con firma inválida (`firma_invalida`) | Burp Repeater | `GET http://localhost:8080/api/users` | `401` `Token inválido`: ya no lista usuarios ni hashes. Captura `burp-poc04.png` |
+
+> Las repeticiones en Postman (`postman-poc01.png`, `postman-poc03.png` y `07-reprueba-detectiononly.png`) no muestran la cabecera `Date`. Se agregan a este registro cuando se anote su hora.
 
 ### Comparación Hito 2 vs Hito 4 (Burp Repeater)
 
