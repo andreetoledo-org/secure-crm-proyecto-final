@@ -89,8 +89,8 @@ export default function TicketDetail() {
             <h2 className="mb-1 text-sm font-semibold text-ink">Vista del cliente</h2>
             <p className="mb-3 text-xs text-uvg-graphite/60">Así se muestra el ticket en el portal público.</p>
             <div className="rounded-lg bg-uvg-green/4 p-4 ring-1 ring-uvg-green/8">
-              {/* Descripción renderizada como HTML sin sanitizar (superficie de XSS). */}
-              <div className="text-sm text-ink" dangerouslySetInnerHTML={{ __html: t.description }} />
+              {/* Hito 4 (PoC-02 XSS almacenado / CWE-79): la descripción se muestra como texto escapado por React. */}
+              <div className="whitespace-pre-wrap break-words text-sm text-ink">{t.description}</div>
             </div>
           </Card>
         </div>

@@ -21,21 +21,19 @@ function toUser(row: any) {
 
 // POST /api/auth/login
 // Sin rate limiting ni bloqueo de cuenta (A07 / CWE-307): permite fuerza bruta.
+// Hito 4 (PoC-01 / CWE-89): la consulta usa parámetros (?) en lugar de
+// concatenar los valores en el SQL. Un usuario como  admin' OR '1'='1' --
+// se compara como texto literal, no existe y la respuesta es 401.
 authRouter.post('/login', (req, res) => {
   const { username, password } = req.body ?? {};
-
-  // Query construida por concatenación de strings (A05 Injection / CWE-89).
-  // Un pentester puede inyectar:  admin' --   ó   ' OR '1'='1' --
-  const hashed = weakHash(String(password ?? ''));
-  const sql = `SELECT * FROM users WHERE username = '${username}' AND password_hash = '${hashed}'`;
-
-  let row: any;
-  try {
-    row = db.prepare(sql).get();
-  } catch (err: any) {
-    // Mensaje de error verboso: filtra el SQL y el detalle del motor (A02 / CWE-209).
-    return res.status(500).json({ error: 'Error en la consulta', sql, detail: String(err?.message ?? err) });
+  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
   }
+
+  const hashed = weakHash(password);
+  const row = db
+    .prepare('SELECT * FROM users WHERE username = ? AND password_hash = ?')
+    .get(username, hashed) as any;
 
   if (!row) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -44,8 +42,14 @@ authRouter.post('/login', (req, res) => {
   const user = toUser(row);
   const token = jwt.sign({ sub: user.id, username: user.username, role: user.role }, JWT_SECRET);
 
-  // Cookie de sesión insegura: sin HttpOnly, sin Secure, sin SameSite (A02 / CWE-1004).
-  res.cookie('session', token, { httpOnly: false, secure: false });
+  // Hito 4 (PoC-02 / CWE-1004): la cookie de sesión ya no es legible desde
+  // JavaScript (HttpOnly), así un XSS no puede robarla, y no viaja en
+  // peticiones de otros sitios (SameSite).
+  res.cookie('session', token, {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',
+  });
 
   res.json({ token, user });
 });

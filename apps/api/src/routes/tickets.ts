@@ -31,14 +31,18 @@ const SELECT = `
 `;
 
 // GET /api/tickets?q=...
-// Búsqueda con concatenación de strings (A05 / CWE-89: SQLi de segundo vector).
-// El término 'q' se refleja tal cual en el frontend -> habilita XSS reflejado (CWE-79).
+// Hito 4 (PoC-02, vector SQLi / CWE-89): el término de búsqueda viaja como
+// parámetro (@like), nunca concatenado en el SQL. El valor 'query' se sigue
+// devolviendo, pero el frontend ahora lo muestra como texto (sin XSS).
 ticketsRouter.get('/', (req, res) => {
-  const q = (req.query.q as string) || '';
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
   let rows: any[];
   if (q) {
-    const sql = `${SELECT} WHERE t.title LIKE '%${q}%' OR t.description LIKE '%${q}%' OR t.customer_name LIKE '%${q}%' ORDER BY t.created_at DESC`;
-    rows = db.prepare(sql).all();
+    rows = db
+      .prepare(
+        `${SELECT} WHERE t.title LIKE @like OR t.description LIKE @like OR t.customer_name LIKE @like ORDER BY t.created_at DESC`
+      )
+      .all({ like: `%${q}%` });
   } else {
     rows = db.prepare(`${SELECT} ORDER BY t.created_at DESC`).all();
   }

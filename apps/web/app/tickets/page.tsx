@@ -65,8 +65,8 @@ function TicketsInner() {
       {activeQuery && (
         <p className="mb-4 text-sm text-uvg-graphite/70">
           Resultados para{' '}
-          {/* El término de búsqueda se refleja sin sanitizar (renderizado como HTML). */}
-          <span className="font-medium text-ink" dangerouslySetInnerHTML={{ __html: `“${activeQuery}”` }} />
+          {/* Hito 4 (PoC-02 / CWE-79): React escapa el término; se muestra como texto, nunca como HTML. */}
+          <span className="font-medium text-ink">“{activeQuery}”</span>
         </p>
       )}
 
@@ -95,8 +95,8 @@ function TicketsInner() {
                 >
                   <span className="tabular font-mono text-xs text-uvg-graphite/45">#{t.id}</span>
                   <div className="min-w-0">
-                    {/* Título sin sanitizar -> XSS almacenado si se guarda un payload. */}
-                    <div className="truncate text-sm font-medium text-ink" dangerouslySetInnerHTML={{ __html: t.title }} />
+                    {/* Hito 4 (PoC-02 / CWE-79): el título se muestra como texto escapado por React. */}
+                    <div className="truncate text-sm font-medium text-ink">{t.title}</div>
                     <div className="truncate text-xs text-uvg-graphite/60">{t.customerName}</div>
                   </div>
                   <span className="hidden sm:block"><PriorityPill priority={t.priority} /></span>
