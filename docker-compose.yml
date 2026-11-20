@@ -11,7 +11,9 @@ services:
       - "4000:4000"
     environment:
       API_PORT: "4000"
-      JWT_SECRET: "secret123"
+      # Hito 4: sin secreto fijo en el repo. Defínanlo en .env (>= 32 caracteres);
+      # si falta, la API genera uno aleatorio en cada arranque.
+      JWT_SECRET: "${JWT_SECRET:-}"
     restart: unless-stopped
 
   web:

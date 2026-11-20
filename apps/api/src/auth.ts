@@ -2,11 +2,9 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from './db';
 import { weakHash } from './hash';
+import { JWT_ALGORITHM, JWT_EXPIRES_IN, JWT_SECRET } from './config';
 
 export const authRouter = Router();
-
-// Secreto débil y hardcodeado como fallback (A02/A04, CWE-798/CWE-521).
-const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
 
 function toUser(row: any) {
   return {
@@ -40,7 +38,12 @@ authRouter.post('/login', (req, res) => {
   }
 
   const user = toUser(row);
-  const token = jwt.sign({ sub: user.id, username: user.username, role: user.role }, JWT_SECRET);
+  // Hito 4 (PoC-04): token firmado con el secreto de config.ts, algoritmo fijo
+  // HS256 y expiración de 8 horas.
+  const token = jwt.sign({ sub: user.id, username: user.username, role: user.role }, JWT_SECRET, {
+    algorithm: JWT_ALGORITHM,
+    expiresIn: JWT_EXPIRES_IN,
+  });
 
   // Hito 4 (PoC-02 / CWE-1004): la cookie de sesión ya no es legible desde
   // JavaScript (HttpOnly), así un XSS no puede robarla, y no viaja en
@@ -53,5 +56,3 @@ authRouter.post('/login', (req, res) => {
 
   res.json({ token, user });
 });
-
-export { JWT_SECRET };
